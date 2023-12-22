@@ -1,0 +1,1 @@
+Qlora is a LoRa relaying package. As installed, and configured with config.h, a device with LoRa capabilities will act as a terminal with a serial connection and as a relay. Multiple devices can be strung up across long distances to allow for simple text bsaed communication. 
