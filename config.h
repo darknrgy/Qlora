@@ -12,6 +12,9 @@
 #define LORA_RST 14
 #define LORA_DIO0 13
 
+// LoRa Power
+#define LORA_TX_POWER 20
+
 // Voltage Divider
 #define VOLTAGE_READ_PIN0 A0
 #define VOLTAGE_READ_PIN1 A1

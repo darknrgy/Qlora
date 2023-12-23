@@ -26,6 +26,7 @@ void setup() {
 
 int ping = false;
 unsigned long long expire = 0;
+String command = "";
 
 void loop() {
 	
@@ -47,13 +48,17 @@ void loop() {
 			if (Serial.available() == 0) break;
 		}
 
+		command = userInput;
+		command.replace("\n", "");
 		userInput.replace("\n", " ");
+
 		
-		if (userInput == "/ping") {
-			ping = !ping;
+		if (command == "/ping") {
+			Serial.println("Ping enabled");
+			ping = true;
 		}
 
-		if (userInput == "/debug") {
+		if (command == "/debug") {
 			Config::getInstance().toggleDebug();
 		}
 

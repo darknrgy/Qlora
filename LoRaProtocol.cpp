@@ -210,7 +210,7 @@ void LoRaProtocol::configure() {
 	this->lora->setSpreadingFactor(12);
 	this->lora->setSignalBandwidth(125E3);
 	this->lora->setCodingRate4(8);
-	this->lora->setTxPower(1);
+	this->lora->setTxPower(LORA_TX_POWER);
 }
 
 
