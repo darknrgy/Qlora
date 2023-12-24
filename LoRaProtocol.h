@@ -12,8 +12,11 @@
 
 class LoRaProtocol {
 public:
+	LoRaClass* lora;
+
 	LoRaProtocol(LoRaClass* lora);
 	void listenAndRelay();
+	String* getLastReply();
 	void receive(LoRaPacket* packet);
 	void send(String message, uint hops);
 	void relay(LoRaPacket* packet);
@@ -27,8 +30,8 @@ private:
 	int currentFromMe = 0;
 	String packetId;
 	String sentPacketId = "";
+	String lastReply;
 
-	LoRaClass* lora;
 	void sendAckPacket(LoRaPacket* packet);
 	void processReceived(LoRaPacket* packet);
 	bool isSeen(LoRaPacket* packet);

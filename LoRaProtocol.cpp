@@ -7,11 +7,13 @@ LoRaProtocol::LoRaProtocol(LoRaClass* lora) {
 }
 
 void LoRaProtocol::listenAndRelay() {
+	lastReply = "";
 	LoRaPacket* packet = new LoRaPacket();
 	receive(packet);
 
 	if (packet->isNew()) {
-		Serial.println("<<< " + String(packet->getMessage()));
+		lastReply = String(packet->getMessage());
+		Serial.println("<<< " + lastReply);
 	}
 
 	if (packet->isRelay()) {
@@ -21,6 +23,10 @@ void LoRaProtocol::listenAndRelay() {
 	}
 
 	delete packet;
+}
+
+String* LoRaProtocol::getLastReply() {
+	return &lastReply;
 }
 
 void LoRaProtocol::receive(LoRaPacket* packet) {
@@ -50,8 +56,8 @@ void LoRaProtocol::send(String message, uint hops) {
 		setHopCount(packet, hops);
 		packet->setMessage((char*) first.c_str());
 
-		long int delta = loraSend(packet);
-		delay(delta);
+		long int dt = loraSend(packet);
+		delay(dt);
 	}
 }
 
@@ -153,36 +159,36 @@ unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
 	String data = String(packet->getData());
 	LoRaPacket* ackPacket = new LoRaPacket();
 	unsigned long long expire;
-	unsigned long long delta = 0;
+	unsigned long long dt = 0;
 	
 	for (int i = 0; i < 3; i++) {
 		if (Config::getInstance().isDebug()) Serial.println("SEND: " + data);
 		
-		delta = ullmillis();
+		dt = ullmillis();
 		LoRa.beginPacket();
 		LoRa.print(data);
 		LoRa.endPacket();
-		if (packet->getMode() == LoRaPacket::modeACK) return ullmillis() - delta;
+		if (packet->getMode() == LoRaPacket::modeACK) return dt - ullmillis();
 
 		// Now wait for an ACK
 		sentPacketId = packet->getPacketId();
-		expire = ullmillis() + 3000;
+		expire = ullmillis() + 5000;
 		while (ullmillis() < expire) {
 			receive(ackPacket);
 			if (sentPacketId.isEmpty()) {
-				delta = ullmillis() - delta;
-				if (Config::getInstance().isDebug()) Serial.println(" DONE!" + String((unsigned long) delta));
+				dt = ullmillis() - dt;
+				if (Config::getInstance().isDebug()) Serial.println(" DONE!" + String((unsigned long) dt));
 				delete ackPacket;
-				return delta;
+				return dt;
 			}
 		}
 	}
 
 	sentPacketId = "";
 	delete ackPacket;
-	delta = ullmillis() - delta;
-	if (Config::getInstance().isDebug()) Serial.println("***NO ACK***: " + packet->getPacketId() + " " + String((unsigned long) delta));
-	return delta;
+	dt = ullmillis() - dt;
+	if (Config::getInstance().isDebug()) Serial.println("***NO ACK***: " + packet->getPacketId() + " " + String((unsigned long) dt));
+	return dt;
 }
 
 
@@ -211,6 +217,7 @@ void LoRaProtocol::configure() {
 	this->lora->setSignalBandwidth(125E3);
 	this->lora->setCodingRate4(8);
 	this->lora->setTxPower(LORA_TX_POWER);
+	this->lora->setFrequency(914900000);
 }
 
 

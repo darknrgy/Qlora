@@ -15,6 +15,9 @@
 // LoRa Power
 #define LORA_TX_POWER 20
 
+// LoRa Hops
+#define LORA_HOPS 1
+
 // Voltage Divider
 #define VOLTAGE_READ_PIN0 A0
 #define VOLTAGE_READ_PIN1 A1
@@ -29,14 +32,19 @@ public:
 	}
 
 	void toggleDebug();
-
 	bool isDebug();
+
+	void setBandwidth(long bandwidth);
+	long getBandwidth();
+	long getChannelFrequency(long i);
 
 	Config(const Config&) = delete;
     void operator=(const Config&) = delete;
 
 private:
 	bool debug = true;
+	long bandwidth;
+	long channels[128];
 	Config();
 };
 
