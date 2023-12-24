@@ -31,6 +31,7 @@ private:
 	String packetId;
 	String sentPacketId = "";
 	String lastReply;
+	long nextTxTime = ullmillis();
 
 	void sendAckPacket(LoRaPacket* packet);
 	void processReceived(LoRaPacket* packet);

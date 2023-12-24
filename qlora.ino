@@ -74,7 +74,7 @@ void loop() {
 			return;
 		}
 		
-		Serial.println(">>> " + userInput);
+		Serial.println("<<< " + userInput);
 		lora.send(userInput, LORA_HOPS);
 	}
 
@@ -96,6 +96,10 @@ void runCmd(String userInput) {
 		Serial.println("PING toggled");
 	} else if (cmd == "debug") {
 		Config::getInstance().toggleDebug();
+	} else if (cmd == "blink") {
+		for (int i = 0; i < 3; i++) {
+			digitalWrite(LED_BUILTIN, LOW); delay(300); digitalWrite(LED_BUILTIN, HIGH); delay(300);
+		}
 	} else if (cmd == "set") {
 		setConfig(userInput);
 	}

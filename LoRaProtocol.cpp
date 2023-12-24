@@ -13,7 +13,7 @@ void LoRaProtocol::listenAndRelay() {
 
 	if (packet->isNew()) {
 		lastReply = String(packet->getMessage());
-		Serial.println("<<< " + lastReply);
+		Serial.println(">>> " + lastReply);
 	}
 
 	if (packet->isRelay()) {
@@ -42,8 +42,9 @@ void LoRaProtocol::receive(LoRaPacket* packet) {
 }
 
 void LoRaProtocol::send(String message, uint hops) {
-	static uint64_t msgLength = LoRaPacket::messageSize;
+	while (ullmillis() < nextTxTime);
 
+	static uint64_t msgLength = LoRaPacket::messageSize;
 	uint64_t start = 0;
 	while (message.length() > 0) {
 		String first = message.substring(0, LoRaPacket::messageSize);
@@ -172,12 +173,13 @@ unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
 
 		// Now wait for an ACK
 		sentPacketId = packet->getPacketId();
-		expire = ullmillis() + 5000;
+		expire = ullmillis() + 2500;
 		while (ullmillis() < expire) {
 			receive(ackPacket);
 			if (sentPacketId.isEmpty()) {
 				dt = ullmillis() - dt;
-				if (Config::getInstance().isDebug()) Serial.println(" DONE!" + String((unsigned long) dt));
+				nextTxTime = ullmillis() + dt;
+				if (Config::getInstance().isDebug()) Serial.println("DONE: " + String((unsigned long) dt) + "ms");
 				delete ackPacket;
 				return dt;
 			}
