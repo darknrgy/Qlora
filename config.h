@@ -38,6 +38,9 @@ public:
 	long getBandwidth();
 	long getChannelFrequency(long i);
 
+	void toggleRelay();
+	bool isRelay();
+
 	Config(const Config&) = delete;
     void operator=(const Config&) = delete;
 
@@ -45,6 +48,7 @@ private:
 	bool debug = true;
 	long bandwidth;
 	long channels[128];
+	bool relay = true;
 	Config();
 };
 

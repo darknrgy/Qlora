@@ -17,8 +17,6 @@ void LoRaProtocol::listenAndRelay() {
 	}
 
 	if (packet->isRelay()) {
-		if (Config::getInstance().isDebug()) Serial.println("RELAY: " + String(packet->getData()));
-		addFromMe(packet);
 		relay(packet);
 	}
 
@@ -63,6 +61,9 @@ void LoRaProtocol::send(String message, uint hops) {
 }
 
 void LoRaProtocol::relay(LoRaPacket* packet) {
+	if (!Config::getInstance().isRelay()) return;
+	if (Config::getInstance().isDebug()) Serial.println("RELAY: " + String(packet->getData()));
+	addFromMe(packet);
 	loraSend(packet);
 }
 

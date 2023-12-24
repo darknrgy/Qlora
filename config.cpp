@@ -27,3 +27,11 @@ long Config::getBandwidth() {
 long Config::getChannelFrequency(long i) {
 	return channels[i];
 }
+
+void Config::toggleRelay() {
+	relay = !relay;
+}
+
+bool Config::isRelay() {
+	return relay;
+}

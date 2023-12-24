@@ -102,6 +102,10 @@ void runCmd(String userInput) {
 		}
 	} else if (cmd == "set") {
 		setConfig(userInput);
+	} else if (cmd == "relay") {
+		Config::getInstance().toggleRelay();
+		bool relay = Config::getInstance().isRelay();
+		Serial.println("Relay set to " + String(relay));
 	}
 }
 
