@@ -1,6 +1,10 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <Arduino.h>
+#include <Preferences.h>
+
+
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP  10  /* Time ESP32 will go to sleep (in seconds) */
 #define TIME_TO_STAY_AWAKE_RELAY 300
@@ -12,9 +16,6 @@
 #define LORA_RST 14
 #define LORA_DIO0 13
 
-// LoRa Power
-#define LORA_TX_POWER 1
-
 // LoRa Hops
 #define LORA_HOPS 1
 
@@ -24,6 +25,11 @@
 #define VOLRAGE_DIVIDER_R1 1000000
 #define VOLRAGE_DIVIDER_R2 220000
 
+#define PREFERENCES_VERSION 3
+#define PREFERENCES_NAMESPACE "qlora"
+#define CONFIG Config::getInstance()
+
+class LoRaProtocol;
 
 class Config {
 public:
@@ -32,15 +38,31 @@ public:
 		return instance;
 	}
 
+	void setLora(LoRaProtocol* lora);
+	void load();
+
 	void toggleDebug();
 	bool isDebug();
 
 	void setBandwidth(long bandwidth);
-	long getBandwidth();
-	long getChannelFrequency(long i);
+	long getBandwidth();	
 
 	void toggleRelay();
 	bool isRelay();
+
+	void setPower(long power);
+	long getPower();
+
+	void setChannel(long channel);
+	long getChannel();
+
+	long getFrequency();
+
+	void setDefaults();
+	void save();
+	long getChannelFrequency(long i);
+
+	String getAllAsString();
 
 	Config(const Config&) = delete;
     void operator=(const Config&) = delete;
@@ -48,8 +70,15 @@ public:
 private:
 	bool debug = true;
 	long bandwidth;
-	long channels[128];
 	bool relay = true;
+	long channel;
+	long power;
+
+	Preferences prefs;
+
+	LoRaProtocol* lora;
+
+	long channels[128];
 	Config();
 };
 

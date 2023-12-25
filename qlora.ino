@@ -3,9 +3,9 @@
 #include "LoRaProtocol.h"
 #include "config.h"
 #include "ullmillis.h"
-#include "config.h"
 
 LoRaProtocol lora(&LoRa);
+
 
 void setup() {
 
@@ -21,7 +21,8 @@ void setup() {
 		delay(1000);
 	}
 
-	lora.configure();
+	CONFIG.setLora(&lora);
+	CONFIG.load();
 }
 
 int ping = false;
@@ -80,9 +81,9 @@ void loop() {
 
 	if (ping) {
 		if (ullmillis() > expire) {
-			Serial.println("<<< PING");
-			lora.send("PING", LORA_HOPS);
 			expire = ullmillis() + 10000;
+			Serial.println("<<< PING");
+			lora.send("PING", LORA_HOPS);			
 		}
 	}
 }
@@ -94,9 +95,9 @@ void runCmd(String userInput) {
 
 	if (cmd == "ping") {
 		ping = !ping;
-		Serial.println("PING toggled");
+		Serial.println("PING toggled to " + String(ping));
 	} else if (cmd == "debug") {
-		Config::getInstance().toggleDebug();
+		CONFIG.toggleDebug();
 	} else if (cmd == "blink") {
 		for (int i = 0; i < 3; i++) {
 			digitalWrite(LED_BUILTIN, LOW); delay(300); digitalWrite(LED_BUILTIN, HIGH); delay(300);
@@ -104,9 +105,7 @@ void runCmd(String userInput) {
 	} else if (cmd == "set") {
 		setConfig(userInput);
 	} else if (cmd == "relay") {
-		Config::getInstance().toggleRelay();
-		bool relay = Config::getInstance().isRelay();
-		Serial.println("Relay set to " + String(relay));
+		CONFIG.toggleRelay();		
 	} else if (cmd == "voltage") {
 		float bank1 = getBatteryVoltage(VOLTAGE_READ_PIN0);
 		float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
@@ -115,7 +114,20 @@ void runCmd(String userInput) {
 		String voltageString = "Voltage " + getUniqueIdentifier() + ": BANK1: " + String(bank1,2) + ", BANK2: " + String(bank2, 2);
 		Serial.println(voltageString);
 		lora.send(voltageString, LORA_HOPS);
-
+	} else if (cmd == "get") {
+		Serial.print(CONFIG.getAllAsString());
+	} else if (cmd == "help") {
+		Serial.println("HELP (list of all commands)");
+		Serial.println("/set <param> <value>");
+		Serial.println("bandwidth: 125000, 250000");
+		Serial.println("power: 1 through 20");
+		Serial.println("channel: 1 through 128");
+		Serial.println("\n/debug (toggle debug)");
+		Serial.println("/relay (toggle relay)");
+		Serial.println("/ping (toggle ping)");
+		Serial.println("\n/get (get list of all configs)");
+	} else {
+		Serial.println("Unrecognized command: " + String(cmd) + " Type /help for help");
 	}
 }
 
@@ -124,25 +136,14 @@ void setConfig(String userInput) {
 	String value = getNextCommandPart(&userInput);
 
 	if (param == "bandwidth") {
-		lora.lora->setSignalBandwidth(value.toInt());
-		Serial.println("Set signal bandwidth to " + value);
+		long bandwidth = value.toInt();
+		CONFIG.setBandwidth(bandwidth);
 	} else if (param == "channel") {
 		long channel = value.toInt();
-		if (channel < 1 || channel > 128) {
-			Serial.println("Channel must be between 1 and 128");
-			return;
-		}
-		long frequency = Config::getInstance().getChannelFrequency(channel - 1);
-		lora.lora->setFrequency(frequency);
-		Serial.println("Channel is set to " + value + ": " + String(frequency));
+		CONFIG.setChannel(channel);		
 	} else if (param == "power") {
 		long power = value.toInt();
-		if (power < 1 || power > 20) {
-			Serial.println("Power must be between 1 and 20");
-			return;
-		}
-		lora.lora->setTxPower(power);
-		Serial.println("Power is set to " + String(power));
+		CONFIG.setPower(power);
 	}
 }
 

@@ -1,4 +1,4 @@
-#include "awake.h"
+/*#include "awake.h"
 #include "config.h"
 #include "esp_sleep.h"
 
@@ -11,4 +11,4 @@ void Awake::init() {
 	esp_sleep_enable_ext0_wakeup(INTERRUPT_PIN,1);
 }
 
-	
+	*/

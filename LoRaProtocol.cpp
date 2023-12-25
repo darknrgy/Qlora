@@ -222,10 +222,10 @@ void LoRaProtocol::addFromMe(LoRaPacket* packet) {
 void LoRaProtocol::configure() {
 	this->lora->enableInvertIQ();
 	this->lora->setSpreadingFactor(12);
-	this->lora->setSignalBandwidth(125E3);
+	this->lora->setSignalBandwidth(CONFIG.getBandwidth());
 	this->lora->setCodingRate4(8);
-	this->lora->setTxPower(LORA_TX_POWER);
-	this->lora->setFrequency(914900000);
+	this->lora->setTxPower(CONFIG.getPower());
+	this->lora->setFrequency(CONFIG.getFrequency());
 }
 
 
