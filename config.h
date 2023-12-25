@@ -16,13 +16,14 @@
 #define LORA_TX_POWER 1
 
 // LoRa Hops
-#define LORA_HOPS 2
+#define LORA_HOPS 1
 
 // Voltage Divider
 #define VOLTAGE_READ_PIN0 A0
 #define VOLTAGE_READ_PIN1 A1
-#define R1 212500.0
-#define R2 225000.0;
+#define VOLRAGE_DIVIDER_R1 1000000
+#define VOLRAGE_DIVIDER_R2 220000
+
 
 class Config {
 public:

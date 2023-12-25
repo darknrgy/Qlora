@@ -13,6 +13,11 @@ void LoRaProtocol::listenAndRelay() {
 
 	if (packet->isNew()) {
 		lastReply = String(packet->getMessage());
+		
+		if (Config::getInstance().isDebug()) {
+			Serial.print("RSSI " + String(LoRa.packetRssi()) + " ");
+		}
+
 		Serial.println(">>> " + lastReply);
 	}
 
