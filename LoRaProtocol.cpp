@@ -49,7 +49,9 @@ void LoRaProtocol::send(String message, uint hops) {
 
 	static uint64_t msgLength = LoRaPacket::messageSize;
 	uint64_t start = 0;
+	long int dt = 0;
 	while (message.length() > 0) {
+		delay(dt);
 		String first = message.substring(0, LoRaPacket::messageSize);
 		message = message.substring(first.length());
 
@@ -59,9 +61,7 @@ void LoRaProtocol::send(String message, uint hops) {
 		inventPacketId(packet);
 		setHopCount(packet, hops);
 		packet->setMessage((char*) first.c_str());
-
-		long int dt = loraSend(packet);
-		delay(dt);
+		dt = loraSend(packet);	
 	}
 }
 

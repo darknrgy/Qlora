@@ -123,11 +123,11 @@ void Config::save() {
 
 String Config::getAllAsString() {
 	String s;
-	s += "ACTIVE CONFIG: \n";
-	s += "debug: " + String(debug) + "\n";
-	s += "relay: " + String(relay) + "\n";
-	s += "bandwidth: " + String(bandwidth) + "\n";
-	s += "power: " + String(power) + "\n";
-	s += "channel: " + String(channel) + "\n";
+	s += "CONFIG: ";
+	s += "debug: " + String(debug) + ", ";
+	s += "relay: " + String(relay) + ", ";
+	s += "bandwidth: " + String(bandwidth) + ", ";
+	s += "power: " + String(power) + ", ";
+	s += "channel: " + String(channel);
 	return s;
 }

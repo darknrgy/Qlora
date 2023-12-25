@@ -17,7 +17,7 @@
 #define LORA_DIO0 13
 
 // LoRa Hops
-#define LORA_HOPS 1
+#define LORA_HOPS 2
 
 // Voltage Divider
 #define VOLTAGE_READ_PIN0 A0

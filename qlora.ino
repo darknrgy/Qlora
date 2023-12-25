@@ -81,7 +81,7 @@ void loop() {
 
 	if (ping) {
 		if (ullmillis() > expire) {
-			expire = ullmillis() + 10000;
+			expire = ullmillis() + 5000;
 			Serial.println("<<< PING");
 			lora.send("PING", LORA_HOPS);			
 		}
@@ -111,11 +111,22 @@ void runCmd(String userInput) {
 		float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
 		bank1 -= bank2;
 		
-		String voltageString = "Voltage " + getUniqueIdentifier() + ": BANK1: " + String(bank1,2) + ", BANK2: " + String(bank2, 2);
+		String voltageString = "Voltage " + getDeviceId() + ": BANK1: " + String(bank1,2) + ", BANK2: " + String(bank2, 2);
 		Serial.println(voltageString);
 		lora.send(voltageString, LORA_HOPS);
 	} else if (cmd == "get") {
-		Serial.print(CONFIG.getAllAsString());
+		String deviceID = getNextCommandPart(&userInput);
+		String myDeviceId = getDeviceId();
+		String send = myDeviceId + ": " + CONFIG.getAllAsString();
+		if (!deviceID.isEmpty()) {			
+			if (deviceID == myDeviceId) {
+				delay(10);
+				lora.send(send, LORA_HOPS);
+			}
+			return;
+		}
+		Serial.println(send);
+
 	} else if (cmd == "help") {
 		Serial.println("HELP (list of all commands)");
 		Serial.println("/set <param> <value>");
@@ -125,7 +136,7 @@ void runCmd(String userInput) {
 		Serial.println("\n/debug (toggle debug)");
 		Serial.println("/relay (toggle relay)");
 		Serial.println("/ping (toggle ping)");
-		Serial.println("\n/get (get list of all configs)");
+		Serial.println("\n/get [deviceId] (get list of all configs)");
 	} else {
 		Serial.println("Unrecognized command: " + String(cmd) + " Type /help for help");
 	}
@@ -193,7 +204,7 @@ float correctVoltage(float inputValue) {
 	return outputTable[i] + slope * (inputValue - inputTable[i]);
 }
 
-String getUniqueIdentifier() {
+String getDeviceId() {
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);  // Retrieve the MAC address
 
