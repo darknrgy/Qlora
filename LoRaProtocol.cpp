@@ -58,6 +58,7 @@ void LoRaProtocol::send(String message, uint hops) {
 		LoRaPacket* packet = new LoRaPacket();
 		packet->setNew();
 		packet->setMode(LoRaPacket::modeMSG);
+		packet->setSrcId(getDeviceId());
 		inventPacketId(packet);
 		setHopCount(packet, hops);
 		packet->setMessage((char*) first.c_str());
@@ -69,6 +70,7 @@ void LoRaProtocol::relay(LoRaPacket* packet) {
 	if (!Config::getInstance().isRelay()) return;
 	if (Config::getInstance().isDebug()) Serial.println("RELAY: " + String(packet->getData()));
 	addFromMe(packet);
+	packet->setSrcId(getDeviceId());
 	loraSend(packet);
 }
 
@@ -76,8 +78,9 @@ void LoRaProtocol::relay(LoRaPacket* packet) {
 void LoRaProtocol::sendAckPacket(LoRaPacket* packet) {
 	delay(random(100,1000));
 	LoRaPacket* ackPacket = new LoRaPacket();
+	ackPacket->setSrcId(packet->getSrcId());
 	ackPacket->setMode(LoRaPacket::modeACK);
-	ackPacket->setPacketId(packet->getData());
+	ackPacket->setPacketId(packet->getPacketId());
 	setHopCount(ackPacket, 0);
 	ackPacket->setMessage((char*) String("ACK").c_str());
 
@@ -87,9 +90,13 @@ void LoRaProtocol::sendAckPacket(LoRaPacket* packet) {
 
 
 void LoRaProtocol::processReceived(LoRaPacket* packet) {
+	if (isIgnoredSender(packet->getSrcId())) return;
+
 	if (packet->getMode() == LoRaPacket::modeACK) {
 		if (sentPacketId.isEmpty()) return;
 		if (packet->getPacketId() != sentPacketId) return;
+		
+		// here set setPacketId to "" because it's been ack'd
 		sentPacketId = "";
 		if (Config::getInstance().isDebug()) Serial.println("ACKED: " + packet->getPacketId());
 		return;
@@ -105,7 +112,7 @@ void LoRaProtocol::processReceived(LoRaPacket* packet) {
 
 bool LoRaProtocol::isSeen(LoRaPacket* packet) {
 	char id[LoRaPacket::idSize + 1];
-	strncpy(id, packet->getData(), LoRaPacket::idSize);
+	strncpy(id, packet->getData() + LoRaPacket::srcSize, LoRaPacket::idSize);
 	id[LoRaPacket::idSize] = '\0';
 
 	for (int i = 0; i < SEEN_HISTORY; i++) {
@@ -119,7 +126,7 @@ bool LoRaProtocol::isSeen(LoRaPacket* packet) {
 
 bool LoRaProtocol::isFromMe(LoRaPacket* packet) {
 	char id[LoRaPacket::idSize + 1];
-	strncpy(id, packet->getData(), LoRaPacket::idSize);
+	strncpy(id, packet->getData() + LoRaPacket::srcSize, LoRaPacket::idSize);
 	id[LoRaPacket::idSize] = '\0';
 
 	for (int i = 0; i < SEEN_HISTORY; i++) {
@@ -132,7 +139,7 @@ bool LoRaProtocol::isFromMe(LoRaPacket* packet) {
 
 uint64_t LoRaProtocol::decrementHopCount(LoRaPacket* packet) {
     char hopStr[LoRaPacket::hopSize + 1];
-    strncpy(hopStr, packet->getData() + LoRaPacket::idSize, LoRaPacket::hopSize);
+    strncpy(hopStr, packet->getData() + LoRaPacket::srcSize + LoRaPacket::idSize, LoRaPacket::hopSize);
     hopStr[LoRaPacket::hopSize] = '\0';
 
     int hopCount = atoi(hopStr);
@@ -145,7 +152,7 @@ uint64_t LoRaProtocol::decrementHopCount(LoRaPacket* packet) {
 void LoRaProtocol::setHopCount(LoRaPacket* packet, uint64_t hopCount) {
     char hopStr[LoRaPacket::hopSize + 1];
     snprintf(hopStr, LoRaPacket::hopSize + 1, "%0*llu", LoRaPacket::hopSize, hopCount);
-    memcpy(packet->getData() + LoRaPacket::idSize, hopStr, LoRaPacket::hopSize);
+    memcpy(packet->getData() + LoRaPacket::srcSize + LoRaPacket::idSize, hopStr, LoRaPacket::hopSize);
 }
 
 // Generate random packet id of 12 hex characters
@@ -179,9 +186,11 @@ unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
 
 		// Now wait for an ACK
 		sentPacketId = packet->getPacketId();
-		expire = ullmillis() + 2500;
+		expire = ullmillis() + 3000;
 		while (ullmillis() < expire) {
 			receive(ackPacket);
+			
+			// sent packet is empty because it got ack'd
 			if (sentPacketId.isEmpty()) {
 				dt = ullmillis() - dt;
 				nextTxTime = ullmillis() + dt;
@@ -211,6 +220,19 @@ void LoRaProtocol::addFromMe(LoRaPacket* packet) {
 	fromMe[currentSeen][LoRaPacket::idSize] = '\0';
 	currentFromMe++;
 	if (currentFromMe >= SEEN_HISTORY) currentFromMe = 0;
+}
+
+void LoRaProtocol::addIgnoredSender(String sender) {
+	ignoredSenders[currentIgnoredSender] = sender;
+	currentIgnoredSender++;
+	if (currentIgnoredSender >= SEEN_HISTORY) currentIgnoredSender = 0;
+}
+
+bool LoRaProtocol::isIgnoredSender(String sender) {
+	for (int i = 0; i < SEEN_HISTORY; i++) {
+		if (!sender.isEmpty() && sender == ignoredSenders[i]) return true;
+	}
+	return false;
 }
 
 /*void LoRaProtocol::configure() {

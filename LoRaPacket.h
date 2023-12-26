@@ -9,10 +9,11 @@
 
 class LoRaPacket {
 public:
+	static const uint srcSize = 8;
 	static const uint idSize = 8;
 	static const uint hopSize = 3;
 	static const uint modeSize = 1;
-	static const uint messageSize = 254 - 8 - 3 - 1;
+	static const uint messageSize = 254 - 8- 8 - 3 - 1;
 	static const uint64_t packetSize = 256;
 
 	static const char modeMSG = '0';
@@ -23,8 +24,9 @@ public:
 	char* getData();
 	void setMessage(char* message);
 	char* getMessage();
+	void setSrcId(String id);
+	String getSrcId();
 	void setPacketId(String id);
-	void setPacketId(char* id);
 	String getPacketId();
 	bool isNew();
 	void setNew();

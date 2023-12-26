@@ -122,18 +122,24 @@ void runCmd(String userInput) {
 		long gain = getNextCommandPart(&userInput).toInt();
 		lora.lora->setGain(gain);
 		Serial.println("Gain set to " + String(gain));
+	} else if (cmd == "ignore") {
+		String sender = getNextCommandPart(&userInput);
+		lora.addIgnoredSender(sender);
+		Serial.println("Ignoring " + sender);
 	} else if (cmd == "help") {
 		Serial.println("HELP (list of all commands)");
 		Serial.println("/set <param> <value>");
 		Serial.println("bandwidth: 125000, 250000");
 		Serial.println("power: 1 through 20");
 		Serial.println("channel: 1 through 128");
-		Serial.println("\n/debug (toggle debug)");
+		Serial.println("/debug (toggle debug)");
 		Serial.println("/relay (toggle relay)");
 		Serial.println("/ping (enable ping)");
 		Serial.println("/unping (disable ping)");
 		Serial.println("/gain 0 - 6 (not saved with config");
-		Serial.println("\n/get [deviceId] (get list of all configs)");
+		Serial.println("/get [deviceId] (get list of all configs)");
+		Serial.println("/ignore [deviceId]");
+
 	} else {
 		Serial.println("Unrecognized command: " + String(cmd) + " Type /help for help");
 	}

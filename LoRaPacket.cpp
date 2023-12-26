@@ -18,26 +18,30 @@ char* LoRaPacket::getData()  {
 }
 
 char* LoRaPacket::getMessage() {
-	return data + idSize + hopSize + modeSize;
+	return data + srcSize + idSize + hopSize + modeSize;
 }
 
 void LoRaPacket::setMessage(char* message) {
-	memcpy(data + idSize + hopSize + modeSize, message, messageSize);
+	memcpy(data + srcSize + idSize + hopSize + modeSize, message, messageSize);
 	data[255] = '\0';
 }
 
-void LoRaPacket::setPacketId(String id) {
-	setPacketId((char*) id.c_str());
+void LoRaPacket::setSrcId(String id) {
+	memcpy(data, (char*) id.c_str(), srcSize);
 }
 
-void LoRaPacket::setPacketId(char* id) {
-	memcpy(data, id, idSize);
+String LoRaPacket::getSrcId() {
+	return String(data).substring(0, 8);
+}
+
+void LoRaPacket::setPacketId(String id) {
+	memcpy(data + srcSize, (char*) id.c_str(), idSize);
 }
 
 String LoRaPacket::getPacketId() {
 	String packetId;
 	for (unsigned int i = 0; i < idSize && data[i] != '\0'; ++i) {
-		packetId += data[i];
+		packetId += data[i + srcSize];
 	}
 	return packetId;
 }
@@ -59,11 +63,11 @@ void LoRaPacket::setRelay() {
 }
 
 void LoRaPacket::setMode(char mode) {
-	data[idSize + hopSize] = mode;
+	data[srcSize + idSize + hopSize] = mode;
 }
 
 char LoRaPacket::getMode() {
-	return data[idSize + hopSize];
+	return data[srcSize + idSize + hopSize];
 }
 
 LoRaPacket::~LoRaPacket() {
