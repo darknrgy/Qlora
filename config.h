@@ -17,7 +17,7 @@
 #define LORA_DIO0 13
 
 // LoRa Hops
-#define LORA_HOPS 2
+#define LORA_HOPS 1
 
 // Voltage Divider
 #define VOLTAGE_READ_PIN0 A0
@@ -25,7 +25,7 @@
 #define VOLRAGE_DIVIDER_R1 1000000
 #define VOLRAGE_DIVIDER_R2 220000
 
-#define PREFERENCES_VERSION 3
+#define PREFERENCES_VERSION 4
 #define PREFERENCES_NAMESPACE "qlora"
 #define CONFIG Config::getInstance()
 
@@ -44,7 +44,7 @@ public:
 	void toggleDebug();
 	bool isDebug();
 
-	void setBandwidth(long bandwidth);
+	void setBandwidth(long bw);
 	long getBandwidth();	
 
 	void toggleRelay();
@@ -55,6 +55,12 @@ public:
 
 	void setChannel(long channel);
 	long getChannel();
+
+	void setHops(long hops);
+	long getHops();
+
+	void setName(String name);
+	String getName();
 
 	long getFrequency();
 
@@ -69,10 +75,12 @@ public:
 
 private:
 	bool debug = true;
-	long bandwidth;
+	long bw;
 	bool relay = true;
 	long channel;
 	long power;
+	long hops;
+	String name;
 
 	Preferences prefs;
 

@@ -17,11 +17,15 @@ void Config::load() {
 
 	debug = prefs.getBool("debug");
 	relay = prefs.getBool("relay");
-	bandwidth = prefs.getLong("bandwidth");
+	bw = prefs.getLong("bw");
 	power = prefs.getLong("power");
 	channel = prefs.getLong("channel");
+	hops = prefs.getLong("hops");
+	name = prefs.getString("name");
 
 	prefs.end();
+
+	lora->configure();
 }
 
 void Config::setLora(LoRaProtocol* lora) {
@@ -38,15 +42,15 @@ bool Config::isDebug() {
 	return debug;
 }
 
-void Config::setBandwidth(long bandwidth) {
-	this->bandwidth = bandwidth;
-	lora->lora->setSignalBandwidth(bandwidth);
-	Serial.println("Set signal bandwidth to " + String(bandwidth));
+void Config::setBandwidth(long bw) {
+	this->bw = bw;
+	lora->lora->setSignalBandwidth(bw);
+	Serial.println("Set signal bw to " + String(bw));
 	save();
 }
 
 long Config::getBandwidth() {
-	return bandwidth;
+	return bw;
 }
 
 long Config::getChannelFrequency(long i) {
@@ -98,14 +102,42 @@ long Config::getFrequency() {
 	return channels[channel];
 }
 
+void Config::setHops(long hops){
+	if (hops < 1 || hops > 20) {
+		Serial.println("Hops must be between 1 and 20");
+		return;
+	}
+	this->hops = hops;
+	save();
+}
+
+long Config::getHops(){
+	return hops;
+}
+
+void Config::setName(String name){
+	if (name.length() < 1 || name.length() > 12) {
+		Serial.println("Name must be between 1 and 12 chars");
+		return;
+	}
+	this->name = name;
+	save();
+}
+
+String Config::getName(){
+	return name;
+}
+
 void Config::setDefaults() {
 	prefs.clear();
 	prefs.putLong("version", PREFERENCES_VERSION);
 	prefs.putBool("debug", true);
 	prefs.putBool("relay", true);
-	prefs.putLong("bandwidth", 125E3);
+	prefs.putLong("bw", 125E3);
 	prefs.putLong("power", 1);
 	prefs.putLong("channel", 64);
+	prefs.putLong("hops", LORA_HOPS);
+	prefs.putString("name", "default");
 }
 
 void Config::save() {
@@ -113,9 +145,11 @@ void Config::save() {
 	
 	prefs.putBool("debug", debug);
 	prefs.putBool("relay", relay);
-	prefs.putLong("bandwidth", bandwidth);
+	prefs.putLong("bw", bw);
 	prefs.putLong("power", power);
 	prefs.putLong("channel", channel);
+	prefs.putLong("hops", hops);
+	prefs.putString("name", name);
 
 	prefs.end();
 	Serial.println("Configuration saved");
@@ -126,8 +160,11 @@ String Config::getAllAsString() {
 	s += "CONFIG: ";
 	s += "debug: " + String(debug) + ", ";
 	s += "relay: " + String(relay) + ", ";
-	s += "bandwidth: " + String(bandwidth) + ", ";
+	s += "bw: " + String(bw) + ", ";
 	s += "power: " + String(power) + ", ";
-	s += "channel: " + String(channel);
+	s += "channel: " + String(channel) + ", ";
+	s += "hops: " + String(hops) + ", ";
+	s += "name: " + name;
+
 	return s;
 }

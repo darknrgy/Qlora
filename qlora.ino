@@ -64,7 +64,7 @@ void loop() {
 		if (userInput.startsWith("/")) {
 			if (userInput.startsWith("///")) {
 				// Run command on self and all other nodes
-				lora.send(userInput, LORA_HOPS);
+				lora.send(userInput, CONFIG.getHops());
 			} else 	if (userInput.startsWith("//")) {
 				// Run on the nearest node, but not on self (start remote ping for example)
 				lora.send(userInput, 1);
@@ -75,15 +75,15 @@ void loop() {
 			return;
 		}
 		
-		Serial.println("<<< " + userInput);
-		lora.send(userInput, LORA_HOPS);
+		Serial.println("<<< " + CONFIG.getName() + ": " + userInput);
+		lora.send(CONFIG.getName() + ": " + userInput, CONFIG.getHops());
 	}
 
 	if (ping) {
 		if (ullmillis() > expire) {
 			expire = ullmillis() + 5000;
 			Serial.println("<<< PING");
-			lora.send("PING", LORA_HOPS);			
+			lora.send("PING", CONFIG.getHops());			
 		}
 	}
 }
@@ -113,15 +113,14 @@ void runCmd(String userInput) {
 		
 		String voltageString = "Voltage " + getDeviceId() + ": BANK1: " + String(bank1,2) + ", BANK2: " + String(bank2, 2);
 		Serial.println(voltageString);
-		lora.send(voltageString, LORA_HOPS);
+		lora.send(voltageString, CONFIG.getHops());
 	} else if (cmd == "get") {
 		String deviceID = getNextCommandPart(&userInput);
 		String myDeviceId = getDeviceId();
 		String send = myDeviceId + ": " + CONFIG.getAllAsString();
 		if (!deviceID.isEmpty()) {			
 			if (deviceID == myDeviceId) {
-				delay(10);
-				lora.send(send, LORA_HOPS);
+				lora.send(send, CONFIG.getHops());
 			}
 			return;
 		}
@@ -147,14 +146,15 @@ void setConfig(String userInput) {
 	String value = getNextCommandPart(&userInput);
 
 	if (param == "bandwidth") {
-		long bandwidth = value.toInt();
-		CONFIG.setBandwidth(bandwidth);
+		CONFIG.setBandwidth(value.toInt());
 	} else if (param == "channel") {
-		long channel = value.toInt();
-		CONFIG.setChannel(channel);		
+		CONFIG.setChannel(value.toInt());		
 	} else if (param == "power") {
-		long power = value.toInt();
-		CONFIG.setPower(power);
+		CONFIG.setPower(value.toInt());
+	} else if (param == "hops") {
+		CONFIG.setHops(value.toInt());
+	} else if (param == "name") {
+		CONFIG.setName(value);
 	}
 }
 

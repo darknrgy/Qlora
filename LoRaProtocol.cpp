@@ -220,7 +220,6 @@ void LoRaProtocol::addFromMe(LoRaPacket* packet) {
 
 
 void LoRaProtocol::configure() {
-	this->lora->enableInvertIQ();
 	this->lora->setSpreadingFactor(12);
 	this->lora->setSignalBandwidth(CONFIG.getBandwidth());
 	this->lora->setCodingRate4(8);
