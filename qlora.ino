@@ -3,12 +3,11 @@
 #include "LoRaProtocol.h"
 #include "config.h"
 #include "ullmillis.h"
+#include "util.h"
 
 LoRaProtocol lora(&LoRa);
 
-
 void setup() {
-
 	pinMode(LED_BUILTIN, OUTPUT);
 	digitalWrite(LED_BUILTIN, HIGH);
 	
@@ -25,12 +24,9 @@ void setup() {
 	CONFIG.load();
 }
 
-int ping = false;
-unsigned long long expire = 0;
-String command = "";
-
 void loop() {
 	String* reply;
+	static unsigned long long nextPingTime = 0;
 
 	lora.listenAndRelay();
 
@@ -79,13 +75,7 @@ void loop() {
 		lora.send(CONFIG.getName() + ": " + userInput, CONFIG.getHops());
 	}
 
-	if (ping) {
-		if (ullmillis() > expire) {
-			expire = ullmillis() + 5000;
-			Serial.println("<<< PING");
-			lora.send("PING", CONFIG.getHops());			
-		}
-	}
+	ping(-1);
 }
 
 
@@ -94,8 +84,11 @@ void runCmd(String userInput) {
 	String cmd = getNextCommandPart(&userInput);
 
 	if (cmd == "ping") {
-		ping = !ping;
-		Serial.println("PING toggled to " + String(ping));
+		ping(1);
+		Serial.println("PING enabled");
+	} else if (cmd == "unping") {
+		ping(0);
+		Serial.println("PING disabled");
 	} else if (cmd == "debug") {
 		CONFIG.toggleDebug();
 	} else if (cmd == "blink") {
@@ -125,7 +118,10 @@ void runCmd(String userInput) {
 			return;
 		}
 		Serial.println(send);
-
+	} else if (cmd == "gain") {
+		long gain = getNextCommandPart(&userInput).toInt();
+		lora.lora->setGain(gain);
+		Serial.println("Gain set to " + String(gain));
 	} else if (cmd == "help") {
 		Serial.println("HELP (list of all commands)");
 		Serial.println("/set <param> <value>");
@@ -134,7 +130,9 @@ void runCmd(String userInput) {
 		Serial.println("channel: 1 through 128");
 		Serial.println("\n/debug (toggle debug)");
 		Serial.println("/relay (toggle relay)");
-		Serial.println("/ping (toggle ping)");
+		Serial.println("/ping (enable ping)");
+		Serial.println("/unping (disable ping)");
+		Serial.println("/gain 0 - 6 (not saved with config");
 		Serial.println("\n/get [deviceId] (get list of all configs)");
 	} else {
 		Serial.println("Unrecognized command: " + String(cmd) + " Type /help for help");
@@ -170,54 +168,21 @@ String getNextCommandPart(String* input) {
 	return next;
 }
 
-float getBatteryVoltage(int pin) {
-	float sensorValue = analogRead(pin);
-	float voltage = ((float) sensorValue / 4095.0f) * 3.3;
-	voltage = voltage * ((VOLRAGE_DIVIDER_R1 + VOLRAGE_DIVIDER_R2) / VOLRAGE_DIVIDER_R2);
-	return correctVoltage(voltage);
-}
-
-// Voltage Divider Correction using table and interpolation
-const int tableSize = 36;
-float inputTable[36] = {0.0f, 0.14f, 0.65f, 0.96f, 1.59f, 2.06f, 2.56f, 3.03f, 3.51f, 3.98f, 4.47f, 4.97f, 5.48f, 5.95f, 6.42f, 6.92f, 7.41f, 7.88f, 8.38f, 8.85f, 9.35f, 9.81f, 10.3f, 10.76f, 11.24f, 11.75f, 12.23f, 12.74f, 13.25f, 13.79f, 14.4f, 15.04f, 15.76f, 16.59f, 17.44f, 18.39f};
-float outputTable[36] = {0.0f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f, 4.5f, 5.0f, 5.5f, 6.0f, 6.5f, 7.0f, 7.5f, 8.0f, 8.5f, 9.0f, 9.5f, 10.0f, 10.5f, 11.0f, 11.5f, 12.0f, 12.5f, 13.0f, 13.5f, 14.0f, 14.5f, 15.0f, 15.5f, 16.0f, 16.5f, 17.0f, 17.5f, 18.0f};
-
-float correctVoltage(float inputValue) {
-	// Handle boundary conditions
-	if (inputValue <= inputTable[0]) return outputTable[0];
-	if (inputValue >= inputTable[tableSize - 1]) return outputTable[tableSize - 1];
-
-	// Search for the closest index
-	int i = 0;
-	for (i = 0; i < tableSize - 1; i++) {
-			if (inputTable[i] == inputValue) {
-					return outputTable[i];
-			} else if (inputTable[i+1] > inputValue) {
-					break;
-			}
+void ping(int enable) {
+	static int enabled = 0;
+	static unsigned long long nextPingTime = 0;
+	if (enable == 0) enabled = 0;
+	else if (enable == 1) {
+		enabled = 1;
+		nextPingTime = ullmillis();
 	}
-
-	// Linear interpolation
-	float delta_x = inputTable[i+1] - inputTable[i];
-	float delta_y = outputTable[i+1] - outputTable[i];
-	float slope = delta_y / delta_x;
-	return outputTable[i] + slope * (inputValue - inputTable[i]);
+	
+	if (enable == -1 && enabled == 1) {
+		if (ullmillis() >= nextPingTime) {
+			nextPingTime = ullmillis() + 5000;
+			Serial.println("<<< PING");
+			lora.send("PING", CONFIG.getHops());			
+		} 
+	}
 }
 
-String getDeviceId() {
-    uint8_t mac[6];
-    esp_read_mac(mac, ESP_MAC_WIFI_STA);  // Retrieve the MAC address
-
-    // Convert MAC address to a hex string
-    String macStr;
-    for (int i = 0; i < 6; ++i) {
-        if (mac[i] < 16) macStr += "0";  // Add leading zero for single digit hex values
-        macStr += String(mac[i], HEX);
-    }
-
-    // Ensure the MAC string is in the correct format
-    macStr.toUpperCase();
-
-    // Extract and return the last 8 characters
-    return macStr.substring(macStr.length() - 8);
-}
