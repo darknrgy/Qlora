@@ -28,8 +28,8 @@ void LoRaProtocol::listenAndRelay() {
 	delete packet;
 }
 
-String* LoRaProtocol::getLastReply() {
-	return &lastReply;
+String LoRaProtocol::getLastReply() {
+	return lastReply;
 }
 
 void LoRaProtocol::receive(LoRaPacket* packet) {

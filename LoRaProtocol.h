@@ -17,7 +17,7 @@ public:
 
 	LoRaProtocol(LoRaClass* lora);
 	void listenAndRelay();
-	String* getLastReply();
+	String getLastReply();
 	void receive(LoRaPacket* packet);
 	void send(String message, uint hops);
 	void relay(LoRaPacket* packet);

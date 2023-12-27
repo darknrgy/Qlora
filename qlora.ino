@@ -25,7 +25,7 @@ void setup() {
 }
 
 void loop() {
-	String* reply;
+	String reply;
 	static unsigned long long nextPingTime = 0;
 
 	lora.listenAndRelay();
@@ -33,9 +33,18 @@ void loop() {
 	reply = lora.getLastReply();
 	
 	// Handle remote config changes
-	if (reply->startsWith("//")) {
-		reply->replace("\n", " ");
-		runCmd(*reply);
+	if (reply.startsWith("//")) {
+		reply.replace("\n", " ");
+
+		if (reply.startsWith("////")) {
+			if (reply.substring(4, 12) == getDeviceId()) {
+				// This command is addressed to me
+				runCmd(reply.substring(13));
+			}
+			return;
+		}
+
+		runCmd(reply);
 		return;
 	}
 
@@ -58,12 +67,22 @@ void loop() {
 		userInput.replace("\n", " ");
 
 		if (userInput.startsWith("/")) {
+			if (userInput.startsWith("////")) {
+				lora.send(userInput, CONFIG.getHops());
+				return;
+			}
+
 			if (userInput.startsWith("///")) {
 				// Run command on self and all other nodes
 				lora.send(userInput, CONFIG.getHops());
-			} else 	if (userInput.startsWith("//")) {
+				runCmd(userInput);
+				return;
+			}
+			
+			if (userInput.startsWith("//")) {
 				// Run on the nearest node, but not on self (start remote ping for example)
 				lora.send(userInput, 1);
+				runCmd(userInput);
 				return;
 			}
 
@@ -181,7 +200,7 @@ void ping(int enable) {
 	
 	if (enable == -1 && enabled == 1) {
 		if (ullmillis() >= nextPingTime) {
-			nextPingTime = ullmillis() + 5000;
+			nextPingTime = ullmillis() + 10000;
 			Serial.println("<<< PING");
 			lora.send("PING", CONFIG.getHops());			
 		} 
