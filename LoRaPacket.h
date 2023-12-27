@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <Lora.h>
+#include "encryption.h"
 
 #define SEEN_HISTORY 16
 #define PACKET_HOPS 8
@@ -23,6 +24,7 @@ public:
 	LoRaPacket(char* sourcePacket);
 	
 	char* getData();
+	void setData(String data);
 	char* getDataAtId();
 	char* getDataAtHop();
 	char* getDataAtMode();
