@@ -10,8 +10,8 @@
 
 class LoRaPacket {
 public:
-	static const uint srcSize = 8;
 	static const uint idSize = 8;
+	static const uint srcSize = 8;	
 	static const uint hopSize = 3;
 	static const uint modeSize = 1;
 	static const uint messageSize = 254 - 8- 8 - 3 - 1;
@@ -25,7 +25,9 @@ public:
 	
 	char* getData();
 	void setData(String data);
+
 	char* getDataAtId();
+	char* getDataAtSrc();
 	char* getDataAtHop();
 	char* getDataAtMode();
 	char* getDataAtMessage();
@@ -41,6 +43,9 @@ public:
 	void setRelay();
 	void setMode(char mode);
 	char getMode();
+	String getEncryptedData();
+	void decrypt();
+
 	~LoRaPacket();
 
 private:
