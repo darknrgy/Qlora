@@ -17,7 +17,19 @@ char* LoRaPacket::getData()  {
 	return data;
 }
 
-char* LoRaPacket::getMessage() {
+char* LoRaPacket::getDataAtId() {
+	return data + srcSize;
+}
+
+char* LoRaPacket::getDataAtHop() {
+	return data + srcSize + idSize;
+}
+
+char* LoRaPacket::getDataAtMode() {
+	return data + srcSize + idSize + hopSize;
+}
+
+char* LoRaPacket::getDataAtMessage() {
 	return data + srcSize + idSize + hopSize + modeSize;
 }
 
@@ -35,7 +47,7 @@ String LoRaPacket::getSrcId() {
 }
 
 void LoRaPacket::setPacketId(String id) {
-	memcpy(data + srcSize, (char*) id.c_str(), idSize);
+	memcpy(getDataAtId(), (char*) id.c_str(), idSize);
 }
 
 String LoRaPacket::getPacketId() {

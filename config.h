@@ -25,7 +25,7 @@
 #define VOLTAGE_DIVIDER_R1 1000000
 #define VOLTAGE_DIVIDER_R2 220000
 
-#define PREFERENCES_VERSION 4
+#define PREFERENCES_VERSION 5
 #define PREFERENCES_NAMESPACE "qlora"
 #define CONFIG Config::getInstance()
 
@@ -62,6 +62,9 @@ public:
 	void setName(String name);
 	String getName();
 
+	void setIgnore(String ignore);
+	String getIgnore();
+
 	long getFrequency();
 
 	void setDefaults();
@@ -81,6 +84,7 @@ private:
 	long power;
 	long hops;
 	String name;
+	String ignore;
 
 	Preferences prefs;
 

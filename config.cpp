@@ -22,6 +22,7 @@ void Config::load() {
 	channel = prefs.getLong("channel");
 	hops = prefs.getLong("hops");
 	name = prefs.getString("name");
+	ignore = prefs.getString("ignore");
 
 	prefs.end();
 
@@ -99,7 +100,7 @@ long Config::getChannel() {
 }
 
 long Config::getFrequency() {
-	return channels[channel];
+	return channels[channel - 1];
 }
 
 void Config::setHops(long hops){
@@ -128,6 +129,19 @@ String Config::getName(){
 	return name;
 }
 
+void Config::setIgnore(String ignore) {
+	if (ignore.length() < 1 || ignore.length() > 26) {
+		Serial.println("Ignore must be 3 ids at most");
+	}
+	this->ignore = ignore;
+	save();
+}
+
+String Config::getIgnore() {
+	return ignore;
+}
+
+
 void Config::setDefaults() {
 	prefs.clear();
 	prefs.putLong("version", PREFERENCES_VERSION);
@@ -137,6 +151,7 @@ void Config::setDefaults() {
 	prefs.putLong("power", 1);
 	prefs.putLong("channel", 64);
 	prefs.putLong("hops", LORA_HOPS);
+	prefs.putString("ignore", "");
 	prefs.putString("name", "default");
 }
 
@@ -150,6 +165,7 @@ void Config::save() {
 	prefs.putLong("channel", channel);
 	prefs.putLong("hops", hops);
 	prefs.putString("name", name);
+	prefs.putString("ignore", ignore);
 
 	prefs.end();
 	Serial.println("Configuration saved");
@@ -164,7 +180,8 @@ String Config::getAllAsString() {
 	s += "power: " + String(power) + ", ";
 	s += "channel: " + String(channel) + ", ";
 	s += "hops: " + String(hops) + ", ";
-	s += "name: " + name;
+	s += "name: " + name + ", ";
+	s += "ignore: " + ignore;
 
 	return s;
 }

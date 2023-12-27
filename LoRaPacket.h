@@ -21,9 +21,14 @@ public:
 
 	LoRaPacket();
 	LoRaPacket(char* sourcePacket);
+	
 	char* getData();
+	char* getDataAtId();
+	char* getDataAtHop();
+	char* getDataAtMode();
+	char* getDataAtMessage();
+
 	void setMessage(char* message);
-	char* getMessage();
 	void setSrcId(String id);
 	String getSrcId();
 	void setPacketId(String id);

@@ -12,7 +12,7 @@ void LoRaProtocol::listenAndRelay() {
 	receive(packet);
 
 	if (packet->isNew()) {
-		lastReply = String(packet->getMessage());
+		lastReply = String(packet->getDataAtMessage());
 		
 		if (Config::getInstance().isDebug()) {
 			Serial.print("RSSI " + String(LoRa.packetRssi()) + " ");
@@ -76,7 +76,7 @@ void LoRaProtocol::relay(LoRaPacket* packet) {
 
 // Private LoRaProtocol
 void LoRaProtocol::sendAckPacket(LoRaPacket* packet) {
-	delay(random(100,1000));
+	delay(50);
 	LoRaPacket* ackPacket = new LoRaPacket();
 	ackPacket->setSrcId(packet->getSrcId());
 	ackPacket->setMode(LoRaPacket::modeACK);
@@ -112,7 +112,7 @@ void LoRaProtocol::processReceived(LoRaPacket* packet) {
 
 bool LoRaProtocol::isSeen(LoRaPacket* packet) {
 	char id[LoRaPacket::idSize + 1];
-	strncpy(id, packet->getData() + LoRaPacket::srcSize, LoRaPacket::idSize);
+	strncpy(id, packet->getDataAtId(), LoRaPacket::idSize);
 	id[LoRaPacket::idSize] = '\0';
 
 	for (int i = 0; i < SEEN_HISTORY; i++) {
@@ -126,7 +126,7 @@ bool LoRaProtocol::isSeen(LoRaPacket* packet) {
 
 bool LoRaProtocol::isFromMe(LoRaPacket* packet) {
 	char id[LoRaPacket::idSize + 1];
-	strncpy(id, packet->getData() + LoRaPacket::srcSize, LoRaPacket::idSize);
+	strncpy(id, packet->getDataAtId(), LoRaPacket::idSize);
 	id[LoRaPacket::idSize] = '\0';
 
 	for (int i = 0; i < SEEN_HISTORY; i++) {
@@ -139,7 +139,7 @@ bool LoRaProtocol::isFromMe(LoRaPacket* packet) {
 
 uint64_t LoRaProtocol::decrementHopCount(LoRaPacket* packet) {
     char hopStr[LoRaPacket::hopSize + 1];
-    strncpy(hopStr, packet->getData() + LoRaPacket::srcSize + LoRaPacket::idSize, LoRaPacket::hopSize);
+    strncpy(hopStr, packet->getDataAtHop(), LoRaPacket::hopSize);
     hopStr[LoRaPacket::hopSize] = '\0';
 
     int hopCount = atoi(hopStr);
@@ -152,7 +152,7 @@ uint64_t LoRaProtocol::decrementHopCount(LoRaPacket* packet) {
 void LoRaProtocol::setHopCount(LoRaPacket* packet, uint64_t hopCount) {
     char hopStr[LoRaPacket::hopSize + 1];
     snprintf(hopStr, LoRaPacket::hopSize + 1, "%0*llu", LoRaPacket::hopSize, hopCount);
-    memcpy(packet->getData() + LoRaPacket::srcSize + LoRaPacket::idSize, hopStr, LoRaPacket::hopSize);
+    memcpy(packet->getDataAtHop(), hopStr, LoRaPacket::hopSize);
 }
 
 // Generate random packet id of 12 hex characters
@@ -216,30 +216,18 @@ void LoRaProtocol::addSeen(char id[LoRaPacket::idSize + 1]) {
 }
 
 void LoRaProtocol::addFromMe(LoRaPacket* packet) {
-	strncpy(fromMe[currentSeen], packet->getData(), LoRaPacket::idSize); 
+	strncpy(fromMe[currentSeen], packet->getDataAtId(), LoRaPacket::idSize); 
 	fromMe[currentSeen][LoRaPacket::idSize] = '\0';
 	currentFromMe++;
 	if (currentFromMe >= SEEN_HISTORY) currentFromMe = 0;
 }
 
-void LoRaProtocol::addIgnoredSender(String sender) {
-	ignoredSenders[currentIgnoredSender] = sender;
-	currentIgnoredSender++;
-	if (currentIgnoredSender >= SEEN_HISTORY) currentIgnoredSender = 0;
-}
-
 bool LoRaProtocol::isIgnoredSender(String sender) {
-	for (int i = 0; i < SEEN_HISTORY; i++) {
-		if (!sender.isEmpty() && sender == ignoredSenders[i]) return true;
-	}
-	return false;
+	if (sender.isEmpty()) return false;
+	String ignore = CONFIG.getIgnore();
+	if (ignore.indexOf(sender) == -1) return false;
+	return true;	
 }
-
-/*void LoRaProtocol::configure() {
-	this->lora->setTxPower(1);
-}*/
-
-
 
 void LoRaProtocol::configure() {
 	this->lora->setSpreadingFactor(12);

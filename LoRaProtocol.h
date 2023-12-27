@@ -22,15 +22,13 @@ public:
 	void send(String message, uint hops);
 	void relay(LoRaPacket* packet);
 	void configure();
-
-	void addIgnoredSender(String sender);
 	bool isIgnoredSender(String sender);
 	
 
 private:
 	char seen[SEEN_HISTORY][LoRaPacket::idSize + 1] = {""};
 	char fromMe[SEEN_HISTORY][LoRaPacket::idSize + 1] = {""};
-	String ignoredSenders[SEEN_HISTORY];
+
 	int currentSeen = 0;
 	int currentFromMe = 0;
 	int currentIgnoredSender = 0;
