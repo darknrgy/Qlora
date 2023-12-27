@@ -6,10 +6,11 @@
 
 
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
-#define TIME_TO_SLEEP  10  /* Time ESP32 will go to sleep (in seconds) */
-#define TIME_TO_STAY_AWAKE_RELAY 300
-#define TIME_TO_STAY_AWAKE_WAIT_RELAY_MS 10000
-#define INTERRUPT_PIN GPIO_NUM_25
+#define TIME_TO_SLEEP  600  /* Time ESP32 will go to sleep (in seconds) */
+
+// Wakeup interrupt pins
+#define WAKEUP_PIN_LORA 13
+#define WAKEUP_PIN_SENSE 25
 
 // LoRa Pins
 #define LORA_NSS 5

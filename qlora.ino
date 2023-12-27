@@ -4,8 +4,10 @@
 #include "config.h"
 #include "ullmillis.h"
 #include "util.h"
+#include "sleep.h"
 
 LoRaProtocol lora(&LoRa);
+Sleep sleepManager(&LoRa);
 
 void setup() {
 	pinMode(LED_BUILTIN, OUTPUT);
@@ -28,7 +30,7 @@ void loop() {
 	String reply;
 	static unsigned long long nextPingTime = 0;
 
-	lora.listenAndRelay();
+	if (lora.listenAndRelay()) sleepManager.extendAwake();
 
 	reply = lora.getLastReply();
 	
@@ -49,6 +51,7 @@ void loop() {
 	}
 
 	if (Serial.available() > 0) {
+		sleepManager.extendAwake();
 		String userInput = "";
 		
 		while (true) {
@@ -95,6 +98,7 @@ void loop() {
 	}
 
 	ping(-1);
+	sleepManager.sleepIfShould();
 }
 
 
@@ -202,7 +206,8 @@ void ping(int enable) {
 		if (ullmillis() >= nextPingTime) {
 			nextPingTime = ullmillis() + 10000;
 			Serial.println("<<< PING");
-			lora.send("PING", CONFIG.getHops());			
+			lora.send("PING", CONFIG.getHops());
+			sleepManager.extendAwake();			
 		} 
 	}
 }
