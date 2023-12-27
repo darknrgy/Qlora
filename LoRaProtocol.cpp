@@ -235,6 +235,7 @@ void LoRaProtocol::configure() {
 	this->lora->setCodingRate4(8);
 	this->lora->setTxPower(CONFIG.getPower());
 	this->lora->setFrequency(CONFIG.getFrequency());
+	this->lora->enableLowDataRateOptimize();
 }
 
 
