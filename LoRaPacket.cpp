@@ -17,6 +17,12 @@ char* LoRaPacket::getData()  {
 	return data;
 }
 
+void LoRaPacket::setData(String data) {
+	for (int i = 0; i < data.length(); i++) {
+		this->data[i] = data[i];
+	}
+}
+
 char* LoRaPacket::getDataAtId() {
 	return data + srcSize;
 }
