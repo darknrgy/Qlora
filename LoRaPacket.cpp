@@ -24,32 +24,36 @@ void LoRaPacket::setData(String data) {
 }
 
 char* LoRaPacket::getDataAtId() {
-	return data + srcSize;
+	return data;
+}
+
+char* LoRaPacket::getDataAtSrc() {
+	return data + idSize;
 }
 
 char* LoRaPacket::getDataAtHop() {
-	return data + srcSize + idSize;
+	return data + idSize + srcSize;
 }
 
 char* LoRaPacket::getDataAtMode() {
-	return data + srcSize + idSize + hopSize;
+	return data + idSize + srcSize + hopSize;
 }
 
 char* LoRaPacket::getDataAtMessage() {
-	return data + srcSize + idSize + hopSize + modeSize;
+	return data + idSize + srcSize + hopSize + modeSize;
 }
 
 void LoRaPacket::setMessage(char* message) {
-	memcpy(data + srcSize + idSize + hopSize + modeSize, message, messageSize);
+	memcpy(data + idSize + srcSize + hopSize + modeSize, message, messageSize);
 	data[255] = '\0';
 }
 
 void LoRaPacket::setSrcId(String id) {
-	memcpy(data, (char*) id.c_str(), srcSize);
+	memcpy(getDataAtSrc(), (char*) id.c_str(), srcSize);
 }
 
 String LoRaPacket::getSrcId() {
-	return String(data).substring(0, 8);
+	return String(data).substring(idSize, idSize + srcSize);
 }
 
 void LoRaPacket::setPacketId(String id) {
@@ -59,7 +63,7 @@ void LoRaPacket::setPacketId(String id) {
 String LoRaPacket::getPacketId() {
 	String packetId;
 	for (unsigned int i = 0; i < idSize && data[i] != '\0'; ++i) {
-		packetId += data[i + srcSize];
+		packetId += data[i];
 	}
 	return packetId;
 }
@@ -81,11 +85,23 @@ void LoRaPacket::setRelay() {
 }
 
 void LoRaPacket::setMode(char mode) {
-	data[srcSize + idSize + hopSize] = mode;
+	data[idSize + srcSize + hopSize] = mode;
 }
 
 char LoRaPacket::getMode() {
-	return data[srcSize + idSize + hopSize];
+	return data[idSize + srcSize + hopSize];
+}
+
+String LoRaPacket::getEncryptedData() {
+	String dataString = String(data);
+	String subPacket = dataString.substring(idSize, dataString.length());
+	subPacket = Encryption::encrypt(subPacket, getPacketId());
+	return String(getPacketId() + subPacket);
+}
+
+void LoRaPacket::decrypt() {
+	String decryptedData = getEncryptedData();
+	memcpy(getData(), (char*) decryptedData.c_str(), decryptedData.length());
 }
 
 LoRaPacket::~LoRaPacket() {

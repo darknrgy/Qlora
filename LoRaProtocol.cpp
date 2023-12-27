@@ -45,9 +45,9 @@ void LoRaProtocol::receive(LoRaPacket* packet) {
 		packet->getData()[i++] = this->lora->read();
 	}
 
-	String decryptedData = Encryption::xorCipher(String(packet->getData()));
-	packet->setData(decryptedData);
+	// packet->setMessage((char*) packet->getEncryptedData().c_str());
 
+	packet->decrypt();
 	processReceived(packet);
 }
 
@@ -177,17 +177,18 @@ void LoRaProtocol::setMessage(LoRaPacket* packet, char* message){
 }
 
 unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
-	String data = String(packet->getData());
+	String original = String(packet->getData());
+	String data = String(packet->getEncryptedData());
 	LoRaPacket* ackPacket = new LoRaPacket();
 	unsigned long long expire;
 	unsigned long long dt = 0;
 	
 	for (int i = 0; i < 3; i++) {
-		if (CONFIG.isDebug()) Serial.println("SEND: " + data);
+		if (CONFIG.isDebug()) Serial.println("SEND: " + original);
 		
 		dt = ullmillis();
 		LoRa.beginPacket();
-		LoRa.print(Encryption::xorCipher(data));
+		LoRa.print(data);
 		LoRa.endPacket();
 		if (packet->getMode() == LoRaPacket::modeACK) return dt - ullmillis();
 

@@ -7,6 +7,7 @@
 #include "ullmillis.h"
 #include "config.h"
 #include "util.h"
+#include "encryption.h"
 
 #define SEEN_HISTORY 16
 #define PACKET_HOPS 8
