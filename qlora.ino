@@ -58,7 +58,11 @@ void loop() {
 			while (Serial.available() > 0) {			
 				char c = Serial.read();
 				if (c != -1) {
-					userInput += c;
+					if ((int) c < 0x01 || (int) c > 0x7F) {
+						Serial.println("Character " + String(c) + " ommitted; chars must be ascii");
+					} else {
+						userInput += c;	
+					}					
 				} else {
 					delay(2);
 				}			
