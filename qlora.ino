@@ -171,7 +171,30 @@ void runCmd(char* userInput) {
 
         lora.send(voltageString, CONFIG.getHops());
 
-    } else if (strcmp(cmd, "gain") == 0) {
+    } else if (strcmp(cmd, "get") == 0) {
+
+		char deviceID[LoRaPacket::idSize + 1]; 
+		getNextCommandPart(cmdStart, deviceID);
+		deviceID[LoRaPacket::idSize] = '\0';
+
+		char config[maxUserInput];
+		CONFIG.getAllAsString(config, maxUserInput-1);
+
+		char send[maxUserInput]; // Stack allocation (temporary)
+		snprintf(send, maxUserInput-1, "%s: %s", getDeviceId(), config);
+		send[maxUserInput-1] = '\0';
+
+		if (deviceID[0] != '\0') { // If not an empty string
+			// strcmp returns 0 when strings are equal
+			if (!strcmp(deviceID, getDeviceId())) { 
+				lora.send(send, CONFIG.getHops()); // Temp, this will change to const char*
+			}
+			return;
+		}
+
+		Serial.println(send);
+
+	} else if (strcmp(cmd, "gain") == 0) {
 
         char gainStr[maxUserInput];
         getNextCommandPart(cmdStart, gainStr);
