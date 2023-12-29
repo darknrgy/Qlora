@@ -150,17 +150,28 @@ void runCmd(String userInput) {
 		lora.lora->setGain(gain);
 		Serial.println("Gain set to " + String(gain));
 	} else if (cmd == "help") {
-		Serial.println("HELP (list of all commands)");
+		Serial.println("\nHELP (list of all commands):");
+		Serial.println("/get (list all saved configs)");
 		Serial.println("/set <param> <value>");
+		Serial.println("//set <param> <value> (set a param to any first hop listening)");
+		Serial.println("////<deviceId> set <param> <value> (set a param on any device)");
+		Serial.println("///get [deviceId] (get config of remote device)");
+		
+		Serial.println("\nPARAMS:");
 		Serial.println("bandwidth: 125000, 250000");
 		Serial.println("power: 1 through 20");
 		Serial.println("channel: 1 through 128");
+		Serial.println("hops: 1 through 255");
+		Serial.println("name: 1 through 8 chars");
+		Serial.println("ignore: Ignore up to 3 comma separated deviceIds\n");
+
 		Serial.println("/debug (toggle debug)");
 		Serial.println("/relay (toggle relay)");
 		Serial.println("/ping (enable ping)");
 		Serial.println("/unping (disable ping)");
 		Serial.println("/gain 0 - 6 (not saved with config");
-		Serial.println("/get [deviceId] (get list of all configs)");
+		Serial.println("In general: / (me), // (next hop), /// (every device), ////<deviceID> (addressed to device");
+		Serial.println("Caution: You can get into trouble by doing things like ///ping, which will permanently flood the network");
 	} else {
 		Serial.println("Unrecognized command: " + String(cmd) + " Type /help for help");
 	}
