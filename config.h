@@ -39,6 +39,9 @@ public:
 		return instance;
 	}
 
+	static const size_t maxNameSize = 128;
+	static const size_t maxIgnoreSize = 256;
+
 	void setLora(LoRaProtocol* lora);
 	void load();
 
@@ -60,11 +63,11 @@ public:
 	void setHops(long hops);
 	long getHops();
 
-	void setName(String name);
-	String getName();
+	void setName(const char* name);
+	const char* getName();
 
-	void setIgnore(String ignore);
-	String getIgnore();
+	void setIgnore(const char* ignore);
+	const char* getIgnore();
 
 	long getFrequency();
 
@@ -72,20 +75,23 @@ public:
 	void save();
 	long getChannelFrequency(long i);
 
-	String getAllAsString();
+	void getAllAsString(char* buffer, size_t bufferSize);
 
 	Config(const Config&) = delete;
     void operator=(const Config&) = delete;
 
 private:
+
 	bool debug = true;
-	long bw;
+	long bandwidth;
 	bool relay = true;
 	long channel;
 	long power;
 	long hops;
-	String name;
-	String ignore;
+
+	
+	char name[maxNameSize];
+	char ignore[maxIgnoreSize];
 
 	Preferences prefs;
 

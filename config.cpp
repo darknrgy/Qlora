@@ -17,12 +17,16 @@ void Config::load() {
 
 	debug = prefs.getBool("debug");
 	relay = prefs.getBool("relay");
-	bw = prefs.getLong("bw");
+	bandwidth = prefs.getLong("bw");
 	power = prefs.getLong("power");
 	channel = prefs.getLong("channel");
 	hops = prefs.getLong("hops");
-	name = prefs.getString("name");
-	ignore = prefs.getString("ignore");
+	
+	strncpy(name, prefs.getString("name").c_str(), maxNameSize-1);
+	name[maxNameSize-1] = '\0';
+
+	strncpy(ignore, prefs.getString("ignore").c_str(), maxIgnoreSize-1);
+	ignore[maxIgnoreSize-1] = '\0';
 
 	prefs.end();
 
@@ -35,7 +39,7 @@ void Config::setLora(LoRaProtocol* lora) {
 
 void Config::toggleDebug() {
 	debug = !debug;
-	Serial.println("Debug set to " + String(debug));
+	SERIAL_LOG_FORMAT(64, "Debug set to %s", debug ? "true" : "false");
 	save();
 }
 
@@ -43,15 +47,15 @@ bool Config::isDebug() {
 	return debug;
 }
 
-void Config::setBandwidth(long bw) {
-	this->bw = bw;
-	lora->lora->setSignalBandwidth(bw);
-	Serial.println("Set signal bw to " + String(bw));
+void Config::setBandwidth(long bandwidth) {
+	this->bandwidth = bandwidth;
+	lora->lora->setSignalBandwidth(bandwidth);
+	SERIAL_LOG_FORMAT(64, "Set signal bandwidth to %ld", bandwidth);
 	save();
 }
 
 long Config::getBandwidth() {
-	return bw;
+	return bandwidth;
 }
 
 long Config::getChannelFrequency(long i) {
@@ -60,7 +64,7 @@ long Config::getChannelFrequency(long i) {
 
 void Config::toggleRelay() {
 	relay = !relay;
-	Serial.println("Relay set to " + String(relay));
+	SERIAL_LOG_FORMAT(64, "Relay set to %s", relay ? "true" : "false");
 	save();
 }
 
@@ -75,7 +79,7 @@ void Config::setPower(long power) {
 	}
 	this->power = power;
 	lora->lora->setTxPower(power);
-	Serial.println("Power is set to " + String(power));
+	SERIAL_LOG_FORMAT(64, "Power is set to %ld", power);
 	save();
 }
 
@@ -91,7 +95,8 @@ void Config::setChannel(long channel) {
 	this->channel = channel;
 	long frequency = getChannelFrequency(channel - 1);
 	lora->lora->setFrequency(frequency);
-	Serial.println("Channel is set to " + String(channel) + ": " + String(frequency));
+
+	SERIAL_LOG_FORMAT(64, "Channel is set to %ld: %ld", channel, frequency);
 	save();
 }
 
@@ -116,28 +121,35 @@ long Config::getHops(){
 	return hops;
 }
 
-void Config::setName(String name){
-	if (name.length() < 1 || name.length() > 12) {
-		Serial.println("Name must be between 1 and 12 chars");
-		return;
-	}
-	this->name = name;
-	save();
+void Config::setName(const char* name) {
+    size_t nameLength = strlen(name);
+    if (nameLength < 1 || nameLength > maxNameSize) {
+        Serial.println("Name must be between 1 and 127 chars");
+        return;
+    }
+    strncpy(this->name, name, maxNameSize-1);
+    this->name[maxNameSize-1] = '\0'; // Ensure null termination
+
+    save();
 }
 
-String Config::getName(){
+const char* Config::getName(){
 	return name;
 }
 
-void Config::setIgnore(String ignore) {
-	if (ignore.length() < 1 || ignore.length() > 26) {
-		Serial.println("Ignore must be 3 ids at most");
+void Config::setIgnore(const char* ignore) {
+	int len = strnlen(ignore, maxIgnoreSize-1);
+	if (len < 1 || len > maxIgnoreSize-1) {
+		Serial.println("Ignore must be 15 ids at most");
 	}
-	this->ignore = ignore;
+	
+	strncpy(this->ignore, ignore, maxIgnoreSize-1);
+	this->ignore[maxIgnoreSize-1] = '\0';
+
 	save();
 }
 
-String Config::getIgnore() {
+const char* Config::getIgnore() {
 	return ignore;
 }
 
@@ -160,7 +172,7 @@ void Config::save() {
 	
 	prefs.putBool("debug", debug);
 	prefs.putBool("relay", relay);
-	prefs.putLong("bw", bw);
+	prefs.putLong("bw", bandwidth);
 	prefs.putLong("power", power);
 	prefs.putLong("channel", channel);
 	prefs.putLong("hops", hops);
@@ -171,17 +183,12 @@ void Config::save() {
 	Serial.println("Configuration saved");
 }
 
-String Config::getAllAsString() {
-	String s;
-	s += "CONFIG: ";
-	s += "debug: " + String(debug) + ", ";
-	s += "relay: " + String(relay) + ", ";
-	s += "bw: " + String(bw) + ", ";
-	s += "power: " + String(power) + ", ";
-	s += "channel: " + String(channel) + ", ";
-	s += "hops: " + String(hops) + ", ";
-	s += "name: " + name + ", ";
-	s += "ignore: " + ignore;
-
-	return s;
+void Config::getAllAsString(char* buffer, size_t bufferSize) {
+    snprintf(buffer, bufferSize,
+             "CONFIG: debug: %s, relay: %s, bandwidth: %d, power: %d, channel: %d, hops: %d, name: %s, ignore: %s",
+             debug ? "true" : "false", 
+             relay ? "true" : "false", 
+             bandwidth, power, channel, hops,
+             name, ignore);
 }
+

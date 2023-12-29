@@ -123,57 +123,64 @@ void replaceNewlineWithSpace(char* str) {
     }
 }
 
-void runCmd(String userInput) {
-	userInput.replace("/", "");
-	String cmd = getNextCommandPart(&userInput);
+void runCmd(char* userInput) {
+    // Remove all '/' characters from the beginning of userInput
+    char* cmdStart = userInput;
+    while (*cmdStart == '/') {
+        cmdStart++;
+    }
 
-	if (cmd == "ping") {
-		ping(1);
-		Serial.println("PING enabled");
-	} else if (cmd == "unping") {
-		ping(0);
-		Serial.println("PING disabled");
-	} else if (cmd == "debug") {
-		CONFIG.toggleDebug();
-	} else if (cmd == "blink") {
-		for (int i = 0; i < 3; i++) {
-			digitalWrite(LED_BUILTIN, LOW); delay(300); digitalWrite(LED_BUILTIN, HIGH); delay(300);
-		}
-	} else if (cmd == "set") {
-		setConfig(userInput);
-	} else if (cmd == "relay") {
-		CONFIG.toggleRelay();		
-	} else if (cmd == "voltage") {
-		float bank1 = getBatteryVoltage(VOLTAGE_READ_PIN0);
-		float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
-		bank1 -= bank2;
-		
-		char voltageString[128]; // Stack allocation (temporary)
-		sprintf(voltageString, "Voltage %s: BANK1: %.2f BANK2: %.2f", getDeviceId(), bank1, bank2);
-		Serial.println(voltageString);
+    char cmd[maxUserInput];
+    getNextCommandPart(cmdStart, cmd); // Extract the first command part
 
-		lora.send(voltageString, CONFIG.getHops());
-	} else if (cmd == "get") {
-		String deviceID = getNextCommandPart(&userInput);
-		const char* myDeviceId = getDeviceId();
+    if (strcmp(cmd, "ping") == 0) {
 
-		char send[255]; // Stack allocation (temporary)
-		sprintf(send, "%s: %s", myDeviceId, CONFIG.getAllAsString().c_str());
+        ping(1);
+        Serial.println("PING enabled");
 
-		if (!deviceID.isEmpty()) {			
-			// strcmp returns 0 when strings are equal
-			if (!strcmp(deviceID.c_str(),myDeviceId)) { 
-				lora.send(send, CONFIG.getHops()); // Temp, this will change to const char*
-			}
-			return;
-		}
+    } else if (strcmp(cmd, "unping") == 0) {
 
-		Serial.println(send);
-	} else if (cmd == "gain") {
-		long gain = getNextCommandPart(&userInput).toInt();
-		lora.lora->setGain(gain);
-		Serial.println("Gain set to " + String(gain));
-	} else if (cmd == "help") {
+        ping(0);
+        Serial.println("PING disabled");
+
+    } else if (strcmp(cmd, "debug") == 0) {
+
+        CONFIG.toggleDebug();
+
+    } else if (strcmp(cmd, "blink") == 0) {
+        for (int i = 0; i < 3; i++) {
+            digitalWrite(LED_BUILTIN, LOW); delay(300); digitalWrite(LED_BUILTIN, HIGH); delay(300);
+        }
+    } else if (strcmp(cmd, "set") == 0) {
+
+        setConfig(cmdStart);
+
+    } else if (strcmp(cmd, "relay") == 0) {
+
+        CONFIG.toggleRelay();
+
+    } else if (strcmp(cmd, "voltage") == 0) {
+
+        float bank1 = getBatteryVoltage(VOLTAGE_READ_PIN0);
+        float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
+        bank1 -= bank2;
+        
+        char voltageString[128]; // Stack allocation (temporary)
+        sprintf(voltageString, "Voltage %s: BANK1: %.2f BANK2: %.2f", getDeviceId(), bank1, bank2);
+        Serial.println(voltageString);
+
+        lora.send(voltageString, CONFIG.getHops());
+
+    } else if (strcmp(cmd, "gain") == 0) {
+
+        char gainStr[maxUserInput];
+        getNextCommandPart(cmdStart, gainStr);
+        long gain = atol(gainStr);
+        lora.lora->setGain(gain);
+        SERIAL_LOG_FORMAT(64, "Gain set to %ld", &gain);
+
+    } else if (strcmp(cmd, "help") == 0) {
+
 		Serial.println("\nHELP (list of all commands):");
 		Serial.println("/get (list all saved configs)");
 		Serial.println("/set <param> <value>");
@@ -196,41 +203,55 @@ void runCmd(String userInput) {
 		Serial.println("/gain 0 - 6 (not saved with config");
 		Serial.println("In general: / (me), // (next hop), /// (every device), ////<deviceID> (addressed to device");
 		Serial.println("Caution: You can get into trouble by doing things like ///ping, which will permanently flood the network");
+
 	} else {
-		Serial.println("Unrecognized command: " + String(cmd) + " Type /help for help");
+		SERIAL_LOG_FORMAT(128, "Unrecognized command: %s Type /help for help", cmd);
 	}
 }
 
-void setConfig(String userInput) {
-	String param = getNextCommandPart(&userInput);
-	String value = getNextCommandPart(&userInput);
+void setConfig(char* userInput) {
+    char param[maxUserInput];
+    getNextCommandPart(userInput, param);
 
-	if (param == "bandwidth") {
-		CONFIG.setBandwidth(value.toInt());
-	} else if (param == "channel") {
-		CONFIG.setChannel(value.toInt());		
-	} else if (param == "power") {
-		CONFIG.setPower(value.toInt());
-	} else if (param == "hops") {
-		CONFIG.setHops(value.toInt());
-	} else if (param == "name") {
-		CONFIG.setName(value);
-	} else if (param == "ignore") {
-		CONFIG.setIgnore(value);
-	}
+    char value[maxUserInput];
+    getNextCommandPart(userInput, value);
+
+    if (strcmp(param, "bandwidth") == 0) {
+        CONFIG.setBandwidth(atoi(value));
+    } else if (strcmp(param, "channel") == 0) {
+        CONFIG.setChannel(atoi(value));      
+    } else if (strcmp(param, "power") == 0) {
+        CONFIG.setPower(atoi(value));
+    } else if (strcmp(param, "hops") == 0) {
+        CONFIG.setHops(atoi(value));
+    } else if (strcmp(param, "name") == 0) {
+        CONFIG.setName(value);
+    } else if (strcmp(param, "ignore") == 0) {
+        CONFIG.setIgnore(value);
+    }
 }
 
-String getNextCommandPart(String* input) {
-	int spaceIndex = input->indexOf(" ");
 
-	if (spaceIndex == -1) {
-        return *input;
+void getNextCommandPart(char* input, char* nextPart) {
+    // Find the first space in the input
+    char* spacePtr = strchr(input, ' ');
+    if (spacePtr == NULL) {
+        // No space found, copy the whole input to nextPart
+        strncpy(nextPart, input, maxUserInput - 1);
+        nextPart[maxUserInput - 1] = '\0'; // Ensure null termination
+        input[0] = '\0'; // Clear the input
+        return;
     }
 
-	String next = input->substring(0, spaceIndex);
-	input->remove(0, input->indexOf(" ") + 1);
-	return next;
+    // Calculate the length of the next part
+    int nextPartLength = spacePtr - input;
+    strncpy(nextPart, input, nextPartLength);
+    nextPart[nextPartLength] = '\0'; // Ensure null termination
+
+    // Shift the remainder of input to the beginning
+    memmove(input, spacePtr + 1, strlen(spacePtr + 1) + 1); // +1 to include the null terminator
 }
+
 
 void ping(int enable) {
 	static int enabled = 0;

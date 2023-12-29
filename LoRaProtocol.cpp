@@ -20,7 +20,8 @@ bool LoRaProtocol::listenAndRelay() {
         strncpy(lastReply, packet->getDataAtMessage(), LoRaPacket::packetSize - 1);
         lastReply[LoRaPacket::packetSize - 1] = '\0'; // Ensure null termination
 
-        SERIAL_DEBUG_FORMAT(64, "RSSI %d ", LoRa.packetRssi());
+        int rssi = LoRa.packetRssi();
+        SERIAL_DEBUG_FORMAT(64, "RSSI %d", rssi);
 
         Serial.print(">>> ");
         Serial.println(lastReply);
@@ -55,18 +56,23 @@ void LoRaProtocol::receive(LoRaPacket* packet) {
 	processReceived(packet);
 }
 
+// Disable warning about strncpy using a calculated size, we are deliberately comparing
+//  the calculated size against the buffer size and taking the smaller.
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+
 void LoRaProtocol::send(const char* message, uint hops) {
     while (ullmillis() < nextTxTime);
 
-    static const size_t msgLength = LoRaPacket::messageSize;
+    static const size_t messageSize = LoRaPacket::messageSize;
     size_t start = 0;
     long int dt = 0;
-    char subMessage[LoRaPacket::messageSize + 1]; // Buffer for message slice, +1 for null terminator
+    char subMessage[messageSize + 1]; // Buffer for message slice, +1 for null terminator
 
     while (strlen(message + start) > 0) {
         delay(dt);
+
         // Calculate length of substring to take
-        size_t length = strlen(message + start) > msgLength ? msgLength : strlen(message + start);
+        size_t length = min(strlen(message + start), messageSize);
         
         // Copy substring into subMessage
         strncpy(subMessage, message + start, length);
@@ -249,12 +255,19 @@ void LoRaProtocol::addFromMe(LoRaPacket* packet) {
 	if (currentFromMe >= SEEN_HISTORY) currentFromMe = 0;
 }
 
-bool LoRaProtocol::isIgnoredSender(String sender) {
-	if (sender.isEmpty()) return false;
-	String ignore = CONFIG.getIgnore();
-	if (ignore.indexOf(sender) == -1) return false;
-	return true;	
+bool LoRaProtocol::isIgnoredSender(const char* sender) {
+    if (sender == nullptr || sender[0] == '\0') return false; // Check if sender is empty
+
+    const char* ignoreList = CONFIG.getIgnore();
+    if (ignoreList == nullptr) return false;
+
+    // Check if sender is in the ignore list
+    const char* found = strstr(ignoreList, sender);
+    if (found == nullptr) return false;
+
+    return true;
 }
+
 
 void LoRaProtocol::configure() {
 	this->lora->setSpreadingFactor(12);

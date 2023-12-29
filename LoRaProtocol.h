@@ -23,7 +23,7 @@ public:
 	void send(const char* message, uint hops);
 	void relay(LoRaPacket* packet);
 	void configure();
-	bool isIgnoredSender(String sender);
+	bool isIgnoredSender(const char* sender);
 	
 
 private:
