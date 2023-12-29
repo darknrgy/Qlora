@@ -146,7 +146,7 @@ void Config::setDefaults() {
 	prefs.clear();
 	prefs.putLong("version", PREFERENCES_VERSION);
 	prefs.putBool("debug", true);
-	prefs.putBool("relay", true);
+	prefs.putBool("relay", false);
 	prefs.putLong("bw", 125E3);
 	prefs.putLong("power", 1);
 	prefs.putLong("channel", 64);
