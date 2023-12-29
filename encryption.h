@@ -7,13 +7,18 @@
 
 class Encryption {
 public:
-	static String encrypt(const String& msg, const String& seed);
+	static const char* encrypt(const char* msg, const char* seed);
 
 private:
 	Encryption() {}  // Private constructor to prevent instantiation
-	static String xorCipher(const String& msg, const String& key, char replaceNull);
-	static String shiftString(const String& str, int shiftAmount);
-	static int hexStringToReducedNumber(const char* hexString);
+
+	static const size_t maxMessageSize = 256;
+	static const size_t maxKeySize     = 256;
+
+
+	static void xorCipher(const char* msg, const char* key, char replaceNull, char* output);
+	static void shiftKey(char* key, int shiftAmount);
+	static int  hexStringToReducedNumber(const char* hexString);
 };
 
 #endif // ENCRYPTION_H

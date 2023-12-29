@@ -101,11 +101,16 @@ void LoRaProtocol::processReceived(LoRaPacket* packet) {
 
 	if (packet->getMode() == LoRaPacket::modeACK) {
 		if (sentPacketId.isEmpty()) return;
-		if (packet->getPacketId() != sentPacketId) return;
+		//if (packet->getPacketId() != sentPacketId) return;
+		if (strcmp(packet->getPacketId(),sentPacketId.c_str())) return;
 		
 		// here set setPacketId to "" because it's been ack'd
 		sentPacketId = "";
-		if (CONFIG.isDebug()) Serial.println("ACKED: " + packet->getPacketId());
+		if (CONFIG.isDebug()) {
+			char output[128];
+			sprintf(output, "ACKED: %s", packet->getPacketId());
+			Serial.println(output);
+		}
 		return;
 	}
 
@@ -212,7 +217,13 @@ unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
 	sentPacketId = "";
 	delete ackPacket;
 	dt = ullmillis() - dt;
-	Serial.println("***NO ACK***: " + packet->getPacketId() + " " + String((unsigned long) dt));
+	
+
+	//Serial.println("***NO ACK***: " + packet->getPacketId() + " " + String((unsigned long) dt));
+	char output[128];
+	sprintf(output, "***NO ACK***: %s %lu", packet->getPacketId(), dt);
+	Serial.println(output);
+
 	return dt;
 }
 

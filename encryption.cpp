@@ -1,49 +1,58 @@
 #include "encryption.h"
 #include "key.h"
 
-String Encryption::encrypt(const String& msg, const String& seed) {
-	if (encryptionKey.isEmpty()) return msg;
+const char* Encryption::encrypt(const char* msg, const char* seed) {
+    static char encryptedMsg[maxMessageSize];
 
-	String keyCopy = String(encryptionKey);
-
-	for (int i = 0; i < keyCopy.length(); i++) {
-		keyCopy.setCharAt(i, keyCopy.charAt(i) + 127);
-	}
-
-	int shiftAmount = hexStringToReducedNumber(seed.c_str());
-	keyCopy = shiftString(keyCopy, shiftAmount);
-
-	String encryptedMsg = xorCipher(msg, keyCopy, 0x00);
-	return encryptedMsg;
-
-}
-
-String Encryption::xorCipher(const String& msg, const String& key, char replaceNull) {
-	size_t keySize = key.length();
-	String output = "";
-
-	for (size_t i = 0; i < msg.length(); ++i) {
-		char encryptedChar = msg[i] ^ key[i % keySize];
-		if (replaceNull == 0x00 && encryptedChar == 0x00) {
-			Serial.println("0x00 FOUND!");
-		}
-		if (encryptedChar == 0x00) encryptedChar = replaceNull;
-		output += encryptedChar;
-	}
-
-	return output;
-}
-
-String Encryption::shiftString(const String& str, int shiftAmount) {
-    String shiftedString = "";
-    int len = str.length();
-
-    for (int i = 0; i < len; ++i) {
-        int newIndex = (i + shiftAmount) % len;  // Calculate new index with wrapping
-        shiftedString += str[newIndex];  // Append the character at the new index
+    // If we have an empty key don't use any encryption
+    if (strlen(encryptionKey) == 0) {
+        strcpy(encryptedMsg, msg);
+        return encryptedMsg;
     }
 
-    return shiftedString;  // Return the shifted string
+    // Otherwise shift the string and use an xorCypher
+    char keyCopy[maxKeySize];
+    strcpy(keyCopy, encryptionKey);
+
+    for (int i = 0; keyCopy[i] != '\0'; i++) {
+        keyCopy[i] += 127;
+    }
+
+    int shiftAmount = hexStringToReducedNumber(seed);
+    shiftKey(keyCopy, shiftAmount);
+
+    xorCipher(msg, keyCopy, 0x00, encryptedMsg);
+    return encryptedMsg;
+}
+
+
+void Encryption::xorCipher(const char* msg, const char* key, char replaceNull, char* output) {
+    size_t keySize = strlen(key);
+    size_t msgLength = strlen(msg);
+
+    for (size_t i = 0; i < msgLength; ++i) {
+        char encryptedChar = msg[i] ^ key[i % keySize];
+        if (replaceNull == 0x00 && encryptedChar == 0x00) {
+            Serial.println("0x00 FOUND!");
+        }
+        if (encryptedChar == 0x00) encryptedChar = replaceNull;
+        output[i] = encryptedChar;
+    }
+    output[msgLength] = '\0'; // Ensure null termination
+}
+
+
+void Encryption::shiftKey(char* key, int shiftAmount) {
+    int len = strlen(key);
+    char temp[maxKeySize];
+
+    for (int i = 0; i < len; ++i) {
+        int newIndex = (i + shiftAmount) % len;
+        temp[i] = key[newIndex];
+    }
+    temp[len] = '\0';
+
+    strcpy(key, temp);
 }
 
 int Encryption::hexStringToReducedNumber(const char* hexString) {
