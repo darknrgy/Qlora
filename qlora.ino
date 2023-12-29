@@ -131,19 +131,26 @@ void runCmd(String userInput) {
 		float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
 		bank1 -= bank2;
 		
-		String voltageString = "Voltage " + getDeviceId() + ": BANK1: " + String(bank1,2) + ", BANK2: " + String(bank2, 2);
+		char voltageString[128]; // Stack allocation (temporary)
+		sprintf(voltageString, "Voltage %s: BANK1: %.2f BANK2: %.2f", getDeviceId(), bank1, bank2);
 		Serial.println(voltageString);
+
 		lora.send(voltageString, CONFIG.getHops());
 	} else if (cmd == "get") {
 		String deviceID = getNextCommandPart(&userInput);
-		String myDeviceId = getDeviceId();
-		String send = myDeviceId + ": " + CONFIG.getAllAsString();
+		const char* myDeviceId = getDeviceId();
+
+		char send[255]; // Stack allocation (temporary)
+		sprintf(send, "%s: %s", myDeviceId, CONFIG.getAllAsString().c_str());
+
 		if (!deviceID.isEmpty()) {			
-			if (deviceID == myDeviceId) {
-				lora.send(send, CONFIG.getHops());
+			// strcmp returns 0 when strings are equal
+			if (!strcmp(deviceID.c_str(),myDeviceId)) { 
+				lora.send(String(send), CONFIG.getHops()); // Temp, this will change to const char*
 			}
 			return;
 		}
+
 		Serial.println(send);
 	} else if (cmd == "gain") {
 		long gain = getNextCommandPart(&userInput).toInt();

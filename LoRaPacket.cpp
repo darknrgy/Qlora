@@ -48,12 +48,19 @@ void LoRaPacket::setMessage(char* message) {
 	data[255] = '\0';
 }
 
-void LoRaPacket::setSrcId(String id) {
-	memcpy(getDataAtSrc(), (char*) id.c_str(), srcSize);
+void LoRaPacket::setSrcId(const char* id) {
+	memcpy(getDataAtSrc(), id, srcSize);
 }
 
-String LoRaPacket::getSrcId() {
-	return String(data).substring(idSize, idSize + srcSize);
+// String LoRaPacket::getSrcId() {
+// 	return String(data).substring(idSize, idSize + srcSize);
+// }
+const char* LoRaPacket::getSrcId() {
+    static char srcId[srcSize + 1];         // Buffer for srcSize characters + null terminator
+    strncpy(srcId, data + idSize, srcSize); // Copy srcSize characters starting from idSize
+    srcId[srcSize] = '\0';                  // Ensure null termination
+    
+    return srcId;
 }
 
 void LoRaPacket::setPacketId(String id) {

@@ -33,8 +33,8 @@ public:
 	char* getDataAtMessage();
 
 	void setMessage(char* message);
-	void setSrcId(String id);
-	String getSrcId();
+	void setSrcId(const char* id);
+	const char* getSrcId();
 	void setPacketId(String id);
 	String getPacketId();
 	bool isNew();

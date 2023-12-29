@@ -34,20 +34,14 @@ float correctVoltage(float inputValue) {
 	return outputTable[i] + slope * (inputValue - inputTable[i]);
 }
 
-String getDeviceId() {
+const char* getDeviceId() {
+    static char deviceId[9]; // Buffer for 8 characters + null terminator
     uint8_t mac[6];
-    esp_read_mac(mac, ESP_MAC_WIFI_STA);  // Retrieve the MAC address
+    esp_read_mac(mac, ESP_MAC_WIFI_STA); // Retrieve the MAC address
 
     // Convert MAC address to a hex string
-    String macStr;
-    for (int i = 0; i < 6; ++i) {
-        if (mac[i] < 16) macStr += "0";  // Add leading zero for single digit hex values
-        macStr += String(mac[i], HEX);
-    }
+    // Only the last 4 bytes are used for deviceId
+    sprintf(deviceId, "%02X%02X%02X%02X", mac[2], mac[3], mac[4], mac[5]);
 
-    // Ensure the MAC string is in the correct format
-    macStr.toUpperCase();
-
-    // Extract and return the last 8 characters
-    return macStr.substring(macStr.length() - 8);
+    return deviceId;
 }

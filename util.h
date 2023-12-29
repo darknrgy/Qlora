@@ -6,6 +6,6 @@
 
 float getBatteryVoltage(int pin);
 float correctVoltage(float inputValue);
-String getDeviceId();
+const char* getDeviceId();
 
 #endif
