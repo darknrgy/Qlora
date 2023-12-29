@@ -7,7 +7,11 @@
 #include "sleep.h"
 
 LoRaProtocol lora(&LoRa);
-Sleep sleepManager(&LoRa);
+Sleep        sleepManager(&LoRa);
+
+
+static const size_t maxUserInput = 512;
+
 
 void setup() {
 	pinMode(LED_BUILTIN, OUTPUT);
@@ -27,84 +31,97 @@ void setup() {
 }
 
 void loop() {
-	String reply;
-	static unsigned long long nextPingTime = 0;
+    static char reply[LoRaPacket::packetSize];
+    static unsigned long long nextPingTime = 0;
 
-	if (lora.listenAndRelay()) sleepManager.extendAwake();
+    if (lora.listenAndRelay()) sleepManager.extendAwake();
 
-	reply = lora.getLastReply();
-	
-	// Handle remote config changes
-	if (reply.startsWith("//")) {
-		reply.replace("\n", " ");
+    strncpy(reply, lora.getLastReply(), LoRaPacket::packetSize-1);
+    reply[LoRaPacket::packetSize - 1] = '\0'; // Ensure null termination
 
-		if (reply.startsWith("////")) {
-			if (reply.substring(4, 12) == getDeviceId()) {
-				// This command is addressed to me
-				runCmd(reply.substring(13));
-			}
-			return;
-		}
+    // Handle remote config changes
+    if (strncmp(reply, "//", 2) == 0) {
+        replaceNewlineWithSpace(reply);
 
-		runCmd(reply);
-		return;
-	}
+        if (strncmp(reply, "////", 4) == 0) {
+            if (strncmp(reply + 4, getDeviceId(), 8) == 0) {
+                // This command is addressed to me
+                runCmd(reply + 13);
+            }
+            return;
+        }
 
-	if (Serial.available() > 0) {
-		sleepManager.extendAwake();
-		String userInput = "";
-		
-		while (true) {
-			while (Serial.available() > 0) {			
-				char c = Serial.read();
-				if (c != -1) {
-					if ((int) c < 0x01 || (int) c > 0x7F) {
-						Serial.println("Character " + String(c) + " ommitted; chars must be ascii");
-					} else {
-						userInput += c;	
-					}					
-				} else {
-					delay(2);
-				}			
-			}
-			delay(20);
-			if (Serial.available() == 0) break;
-		}
+        runCmd(reply);
+        return;
+    }
 
-		userInput.replace("\n", " ");
+    if (Serial.available() > 0) {
+        sleepManager.extendAwake();
+        char userInput[maxUserInput] = {0}; // Initialize with all zeros
+        int userInputLength = 0;
 
-		if (userInput.startsWith("/")) {
-			if (userInput.startsWith("////")) {
-				lora.send(userInput, CONFIG.getHops());
-				return;
-			}
+        while (true) {
+            while (Serial.available() > 0 && userInputLength < maxUserInput - 1) {
+                char c = Serial.read();
+                if (c != -1) {
+                    if ((int)c < 0x01 || (int)c > 0x7F) {
+                        Serial.print("Character ");
+                        Serial.print(c);
+                        Serial.println(" omitted; chars must be ascii");
+                    } else {
+                        userInput[userInputLength++] = c;
+                    }
+                } else {
+                    delay(2);
+                }
+            }
+            delay(20);
+            if (Serial.available() == 0) break;
+        }
+        userInput[userInputLength] = '\0'; // Null-terminate the string
+        replaceNewlineWithSpace(userInput);
 
-			if (userInput.startsWith("///")) {
-				// Run command on self and all other nodes
-				lora.send(userInput, CONFIG.getHops());
-				runCmd(userInput);
-				return;
-			}
-			
-			if (userInput.startsWith("//")) {
-				// Run on the nearest node, but not on self (start remote ping for example)
-				lora.send(userInput, 1);
-				runCmd(userInput);
-				return;
-			}
+        if (userInput[0] == '/') {
+            if (strncmp(userInput, "////", 4) == 0) {
+                lora.send(userInput, CONFIG.getHops());
+                return;
+            }
 
-			runCmd(userInput);
-			return;
-		}
-		
-		Serial.println("<<< " + CONFIG.getName() + ": " + userInput);
-		lora.send(CONFIG.getName() + ": " + userInput, CONFIG.getHops());
-	}
+            if (strncmp(userInput, "///", 3) == 0) {
+                lora.send(userInput, CONFIG.getHops());
+                runCmd(userInput);
+                return;
+            }
 
-	ping(-1);
-	sleepManager.sleepIfShould();
+            if (strncmp(userInput, "//", 2) == 0) {
+                lora.send(userInput, 1);
+                runCmd(userInput);
+                return;
+            }
+
+            runCmd(userInput);
+            return;
+        }
+
+
+        char message[maxUserInput + 50]; // To accommodate additional text
+        sprintf(message, "<<< %s: %s", CONFIG.getName(), userInput);
+        Serial.println(message);
+        lora.send(message, CONFIG.getHops());
+    }
+
+    ping(-1);
+    sleepManager.sleepIfShould();
 }
 
+// Helper function to replace newline with space
+void replaceNewlineWithSpace(char* str) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] == '\n') {
+            str[i] = ' ';
+        }
+    }
+}
 
 void runCmd(String userInput) {
 	userInput.replace("/", "");
@@ -146,7 +163,7 @@ void runCmd(String userInput) {
 		if (!deviceID.isEmpty()) {			
 			// strcmp returns 0 when strings are equal
 			if (!strcmp(deviceID.c_str(),myDeviceId)) { 
-				lora.send(String(send), CONFIG.getHops()); // Temp, this will change to const char*
+				lora.send(send, CONFIG.getHops()); // Temp, this will change to const char*
 			}
 			return;
 		}

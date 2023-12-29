@@ -21,7 +21,7 @@ public:
 	static const char modeACK = '1';
 
 	LoRaPacket();
-	LoRaPacket(char* sourcePacket);
+	LoRaPacket(const char* sourcePacket);
 	
 	char* getData();
 
@@ -31,10 +31,10 @@ public:
 	char* getDataAtMode();
 	char* getDataAtMessage();
 
-	void setMessage(char* message);
+	void setMessage(const char* message);
 	void setSrcId(const char* id);
 	const char* getSrcId();
-	void setPacketId(String id);
+	void setPacketId(const char* id);
 	const char* getPacketId();
 	bool isNew();
 	void setNew();
@@ -48,7 +48,7 @@ public:
 	~LoRaPacket();
 
 private:
-	char *data;
+	char data[packetSize];
 	bool newPacket = false;
 	bool relay = false;
 };
