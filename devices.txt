@@ -1,4 +1,5 @@
 C314584C A 
 C314573C B
 60112184 C
+C3828B24 D (Jack's Relay)
 C3142D30 (weak rx/tx)
