@@ -10,14 +10,15 @@
 #include "ullmillis.h"
 #include "util.h"
 #include "sleep.h"
+#include "command.h"
 
-
-LoRaProtocol       lora(&LoRa);
-Sleep              sleepManager(&LoRa);
 WebServerInterface serverInterface;
 
 
 static const size_t maxUserInput = 512;
+
+LoRaProtocol lora(&LoRa);
+Sleep        sleepManager(&LoRa);
 
 
 void setup() {
@@ -111,23 +112,33 @@ void handleUserInput(char* userInput)
             return;
         }
 
-        if (strncmp(userInput, "//", 2) == 0) {
-            lora.send(userInput, 1);
-            runCmd(userInput);
-            return;
-        }
 
-        runCmd(userInput);
-        return;
+        char message[maxUserInput + 50]; // To accommodate additional text
+        sprintf(message, "%s: %s", CONFIG.getName(), userInput);
+        Serial.print("<<< ");
+        Serial.println(message);
+        lora.send(message, CONFIG.getHops());
     }
 
-
-    char message[maxUserInput + 50]; // To accommodate additional text
-    sprintf(message, "%s: %s", CONFIG.getName(), userInput);
-    serialPrint("<<< ");
-    serialPrintln(message);
-    lora.send(message, CONFIG.getHops());
+    ping(-1);
+    sleepManager.sleepIfShould();
 }
+
+// Register our commands here
+// Arduino puts function definitions above setup() so we have to declare this
+// below where the definitions get inserted.
+Command commands[] {
+	Command("ping",    cmdPing),
+	Command("unping",  cmdUnping),
+	Command("debug",   cmdDebug),
+	Command("blink",   cmdBlink),
+	Command("relay",   cmdRelay),
+	Command("voltage", cmdVoltage),
+	Command("set",     cmdSet),
+	Command("get",     cmdGet),
+	Command("gain",    cmdGain),
+	Command("help",    cmdHelp),
+};
 
 
 void runCmd(char* userInput) {
@@ -140,104 +151,128 @@ void runCmd(char* userInput) {
     char cmd[maxUserInput];
     getNextCommandPart(cmdStart, cmd); // Extract the first command part
 
-    if (strcmp(cmd, "ping") == 0) {
+    bool found = false;
+    int cmdCount = sizeof(commands) / sizeof(Command);
+    for(int i=0; i<cmdCount; ++i) {
+    	if (strcmp(cmd, commands[i].name) == 0) {
+			commands[i].callback(cmdStart);
+			found = true;
+			break;
+    	}
+    }
 
-        ping(1);
-        serialPrintln("PING enabled");
+    if (!found) {
+    	SERIAL_LOG_FORMAT(128, "Unrecognized command: %s Type /help for help", cmd);
+    }	
+}
 
-    } else if (strcmp(cmd, "unping") == 0) {
 
-        ping(0);
-        serialPrintln("PING disabled");
+void cmdPing(char* cmdStart)
+{
+	ping(1);
+    Serial.println("PING enabled");
+}
 
-    } else if (strcmp(cmd, "debug") == 0) {
+void cmdUnping(char* cmdStart)
+{
+	ping(0);
+	Serial.println("PING disabled");
+}
 
-        CONFIG.toggleDebug();
+void cmdDebug(char* cmdStart)
+{
+	CONFIG.toggleDebug();
+}
 
-    } else if (strcmp(cmd, "blink") == 0) {
-        for (int i = 0; i < 3; i++) {
-            digitalWrite(LED_BUILTIN, LOW); delay(300); digitalWrite(LED_BUILTIN, HIGH); delay(300);
-        }
-    } else if (strcmp(cmd, "set") == 0) {
-
-        setConfig(cmdStart);
-
-    } else if (strcmp(cmd, "relay") == 0) {
-
-        CONFIG.toggleRelay();
-
-    } else if (strcmp(cmd, "voltage") == 0) {
-
-        float bank1 = getBatteryVoltage(VOLTAGE_READ_PIN0);
-        float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
-        bank1 -= bank2;
-        
-        char voltageString[128]; // Stack allocation (temporary)
-        sprintf(voltageString, "Voltage %s: BANK1: %.2f BANK2: %.2f", getDeviceId(), bank1, bank2);
-        serialPrintln(voltageString);
-
-        lora.send(voltageString, CONFIG.getHops());
-
-    } else if (strcmp(cmd, "get") == 0) {
-
-		char deviceID[LoRaPacket::idSize + 1]; 
-		getNextCommandPart(cmdStart, deviceID);
-		deviceID[LoRaPacket::idSize] = '\0';
-
-		char config[maxUserInput];
-		CONFIG.getAllAsString(config, maxUserInput-1);
-
-		char send[maxUserInput]; // Stack allocation (temporary)
-		snprintf(send, maxUserInput-1, "%s: %s", getDeviceId(), config);
-		send[maxUserInput-1] = '\0';
-
-		if (deviceID[0] != '\0') { // If not an empty string
-			// strcmp returns 0 when strings are equal
-			if (!strcmp(deviceID, getDeviceId())) { 
-				lora.send(send, CONFIG.getHops()); // Temp, this will change to const char*
-			}
-			return;
-		}
-
-		serialPrintln(send);
-
-	} else if (strcmp(cmd, "gain") == 0) {
-
-        char gainStr[maxUserInput];
-        getNextCommandPart(cmdStart, gainStr);
-        long gain = atol(gainStr);
-        lora.lora->setGain(gain);
-        SERIAL_LOG_FORMAT(64, "Gain set to %ld", &gain);
-
-    } else if (strcmp(cmd, "help") == 0) {
-
-		serialPrintln("\nHELP (list of all commands):");
-		serialPrintln("/get (list all saved configs)");
-		serialPrintln("/set <param> <value>");
-		serialPrintln("//set <param> <value> (set a param to any first hop listening)");
-		serialPrintln("////<deviceId> set <param> <value> (set a param on any device)");
-		serialPrintln("///get [deviceId] (get config of remote device)");
-		
-		serialPrintln("\nPARAMS:");
-		serialPrintln("bandwidth: 125000, 250000");
-		serialPrintln("power: 1 through 20");
-		serialPrintln("channel: 1 through 128");
-		serialPrintln("hops: 1 through 255");
-		serialPrintln("name: 1 through 8 chars");
-		serialPrintln("ignore: Ignore up to 3 comma separated deviceIds\n");
-
-		serialPrintln("/debug (toggle debug)");
-		serialPrintln("/relay (toggle relay)");
-		serialPrintln("/ping (enable ping)");
-		serialPrintln("/unping (disable ping)");
-		serialPrintln("/gain 0 - 6 (not saved with config");
-		serialPrintln("In general: / (me), // (next hop), /// (every device), ////<deviceID> (addressed to device");
-		serialPrintln("Caution: You can get into trouble by doing things like ///ping, which will permanently flood the network");
-
-	} else {
-		SERIAL_LOG_FORMAT(128, "Unrecognized command: %s Type /help for help", cmd);
+void cmdBlink(char* cmdStart)
+{
+	for (int i = 0; i < 3; i++) {
+	    digitalWrite(LED_BUILTIN, LOW); 
+	    delay(300);
+	    digitalWrite(LED_BUILTIN, HIGH);
+	    delay(300);
 	}
 }
+
+void cmdRelay(char* cmdStart) {
+	CONFIG.toggleRelay();
+}
+
+void cmdSet(char* cmdStart) {
+	setConfig(cmdStart);
+}
+
+void cmdGet(char* cmdStart) {
+	char deviceID[LoRaPacket::idSize + 1]; 
+	getNextCommandPart(cmdStart, deviceID);
+	deviceID[LoRaPacket::idSize] = '\0';
+
+	char config[maxUserInput];
+	CONFIG.getAllAsString(config, maxUserInput-1);
+
+	char send[maxUserInput]; // Stack allocation (temporary)
+	snprintf(send, maxUserInput-1, "%s: %s", getDeviceId(), config);
+	send[maxUserInput-1] = '\0';
+
+	if (deviceID[0] != '\0') { // If not an empty string
+		// strcmp returns 0 when strings are equal
+		if (!strcmp(deviceID, getDeviceId())) { 
+			lora.send(send, CONFIG.getHops()); // Temp, this will change to const char*
+		}
+		return;
+	}
+
+	Serial.println(send);
+}
+
+void cmdVoltage(char* cmdStart) {
+    float bank1 = getBatteryVoltage(VOLTAGE_READ_PIN0);
+    float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
+    bank1 -= bank2;
+    
+    char voltageString[128]; // Stack allocation (temporary)
+    sprintf(voltageString, "Voltage %s: BANK1: %.2f BANK2: %.2f", getDeviceId(), bank1, bank2);
+    Serial.println(voltageString);
+
+    lora.send(voltageString, CONFIG.getHops());
+}
+
+void cmdGain(char* cmdStart) {
+    char gainStr[maxUserInput];
+    getNextCommandPart(cmdStart, gainStr);
+    long gain = atol(gainStr);
+    lora.lora->setGain(gain);
+    SERIAL_LOG_FORMAT(64, "Gain set to %ld", &gain);
+}
+
+void cmdHelp(char* cmdStart) {
+	Serial.println("\nHELP (list of all commands):");
+	Serial.println("/get (list all saved configs)");
+	Serial.println("/set <param> <value>");
+	Serial.println("//set <param> <value> (set a param to any first hop listening)");
+	Serial.println("////<deviceId> set <param> <value> (set a param on any device)");
+	Serial.println("///get [deviceId] (get config of remote device)");
+	
+	Serial.println("\nPARAMS:");
+	Serial.println("bandwidth: 125000, 250000");
+	Serial.println("power: 1 through 20");
+	Serial.println("channel: 1 through 128");
+	Serial.println("hops: 1 through 255");
+	Serial.println("name: 1 through 8 chars");
+	Serial.println("ignore: Ignore up to 3 comma separated deviceIds\n");
+
+	Serial.println("/debug (toggle debug)");
+	Serial.println("/relay (toggle relay)");
+	Serial.println("/ping (enable ping)");
+	Serial.println("/unping (disable ping)");
+	Serial.println("/gain 0 - 6 (not saved with config");
+	Serial.println("In general: / (me), // (next hop), /// (every device), ////<deviceID> (addressed to device");
+	Serial.println("Caution: You can get into trouble by doing things like ///ping, which will permanently flood the network");
+}
+
+// Template for additional commands:
+// void cmd(char* cmdStart) {}
+
 
 void setConfig(char* userInput) {
     char param[maxUserInput];
