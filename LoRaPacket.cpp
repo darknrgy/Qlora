@@ -34,7 +34,7 @@ char* LoRaPacket::getDataAtMessage() {
 }
 
 void LoRaPacket::setMessage(const char* message) {
-	memcpy(data + idSize + srcSize + hopSize + modeSize, message, messageSize);
+	strncpy(data + idSize + srcSize + hopSize + modeSize, message, messageSize);
 	data[packetSize-1] = '\0';
 }
 

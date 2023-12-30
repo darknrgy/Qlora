@@ -105,7 +105,8 @@ void loop() {
 
 
         char message[maxUserInput + 50]; // To accommodate additional text
-        sprintf(message, "<<< %s: %s", CONFIG.getName(), userInput);
+        sprintf(message, "%s: %s", CONFIG.getName(), userInput);
+        Serial.print("<<< ");
         Serial.println(message);
         lora.send(message, CONFIG.getHops());
     }

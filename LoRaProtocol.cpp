@@ -46,11 +46,10 @@ void LoRaProtocol::receive(LoRaPacket* packet) {
 	if (!packetSize) return;
 	
 	long i = 0;
-	while (this->lora->available()) {
+	while (this->lora->available() && i < LoRaPacket::packetSize - 1) {
 		packet->getData()[i++] = this->lora->read();
-	}
-
-	// packet->setMessage((char*) packet->getEncryptedData().c_str());
+    }
+  	packet->getData()[i] = '\0';
 
 	packet->decrypt();
 	processReceived(packet);
@@ -198,6 +197,7 @@ void LoRaProtocol::setMessage(LoRaPacket* packet, const char* message){
 unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
 	const char* original = packet->getData();
 	const char* data = packet->getEncryptedData();
+	
 	LoRaPacket* ackPacket = new LoRaPacket();
 	unsigned long long expire;
 	unsigned long long dt = 0;
