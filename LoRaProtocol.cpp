@@ -81,13 +81,16 @@ void LoRaProtocol::send(const char* message, uint hops) {
         start += length;
 
         LoRaPacket* packet = new LoRaPacket();
+
         packet->setNew();
         packet->setMode(LoRaPacket::modeMSG);
         packet->setSrcId(getDeviceId());
         inventPacketId(packet);
         setHopCount(packet, hops);
         packet->setMessage(subMessage);
-        dt = loraSend(packet);    
+        dt = loraSend(packet);
+        
+        delete packet;
     }
 }
 
