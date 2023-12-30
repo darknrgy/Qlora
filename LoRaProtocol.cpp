@@ -1,38 +1,43 @@
 #include "LoRaProtocol.h"
 
+
 // Public LoRaProtocol
 
 LoRaProtocol::LoRaProtocol(LoRaClass* lora) {
+	sentPacketId[0] = '\0'; // Init to empty string
 	this->lora = lora;
 }
 
 bool LoRaProtocol::listenAndRelay() {
-	bool active = false;
-	lastReply = "";
-	LoRaPacket* packet = new LoRaPacket();
-	receive(packet);
+    bool active = false;
+    
+    lastReply[0] = '\0'; // Assuming lastReply is a char array
+    LoRaPacket* packet = new LoRaPacket();
+    receive(packet);
 
-	if (packet->isNew()) {
-		lastReply = String(packet->getDataAtMessage());
-		
-		if (CONFIG.isDebug()) {
-			Serial.print("RSSI " + String(LoRa.packetRssi()) + " ");
-		}
+    if (packet->isNew()) {
+        // Copy data from packet to lastReply
+        strncpy(lastReply, packet->getDataAtMessage(), LoRaPacket::packetSize - 1);
+        lastReply[LoRaPacket::packetSize - 1] = '\0'; // Ensure null termination
 
-		Serial.println(">>> " + lastReply);
-		active = true;
-	}
+        int rssi = LoRa.packetRssi();
+        SERIAL_DEBUG_FORMAT(64, "RSSI %d", rssi);
 
-	if (packet->isRelay()) {
-		relay(packet);
-		active = true;
-	}
+        Serial.print(">>> ");
+        Serial.println(lastReply);
+        active = true;
+    }
 
-	delete packet;
-	return active;
+    if (packet->isRelay()) {
+        relay(packet);
+        active = true;
+    }
+
+    delete packet;
+    return active;
 }
 
-String LoRaProtocol::getLastReply() {
+const char* LoRaProtocol::getLastReply() {
 	return lastReply;
 }
 
@@ -41,41 +46,54 @@ void LoRaProtocol::receive(LoRaPacket* packet) {
 	if (!packetSize) return;
 	
 	long i = 0;
-	while (this->lora->available()) {
+	while (this->lora->available() && i < LoRaPacket::packetSize - 1) {
 		packet->getData()[i++] = this->lora->read();
-	}
-
-	// packet->setMessage((char*) packet->getEncryptedData().c_str());
+    }
+  	packet->getData()[i] = '\0';
 
 	packet->decrypt();
 	processReceived(packet);
 }
 
-void LoRaProtocol::send(String message, uint hops) {
-	while (ullmillis() < nextTxTime);
+// Disable warning about strncpy using a calculated size, we are deliberately comparing
+//  the calculated size against the buffer size and taking the smaller.
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
 
-	static uint64_t msgLength = LoRaPacket::messageSize;
-	uint64_t start = 0;
-	long int dt = 0;
-	while (message.length() > 0) {
-		delay(dt);
-		String first = message.substring(0, LoRaPacket::messageSize);
-		message = message.substring(first.length());
+void LoRaProtocol::send(const char* message, uint hops) {
+    while (ullmillis() < nextTxTime);
 
-		LoRaPacket* packet = new LoRaPacket();
-		packet->setNew();
-		packet->setMode(LoRaPacket::modeMSG);
-		packet->setSrcId(getDeviceId());
-		inventPacketId(packet);
-		setHopCount(packet, hops);
-		packet->setMessage((char*) first.c_str());
-		dt = loraSend(packet);	
-	}
+    static const size_t messageSize = LoRaPacket::messageSize;
+    size_t start = 0;
+    long int dt = 0;
+    char subMessage[messageSize + 1]; // Buffer for message slice, +1 for null terminator
+
+    while (strlen(message + start) > 0) {
+        delay(dt);
+
+        // Calculate length of substring to take
+        size_t length = min(strlen(message + start), messageSize);
+        
+        // Copy substring into subMessage
+        strncpy(subMessage, message + start, length);
+        subMessage[length] = '\0'; // Ensure null termination
+
+        // Update start position for next iteration
+        start += length;
+
+        LoRaPacket* packet = new LoRaPacket();
+        packet->setNew();
+        packet->setMode(LoRaPacket::modeMSG);
+        packet->setSrcId(getDeviceId());
+        inventPacketId(packet);
+        setHopCount(packet, hops);
+        packet->setMessage(subMessage);
+        dt = loraSend(packet);    
+    }
 }
 
 void LoRaProtocol::relay(LoRaPacket* packet) {
 	if (!CONFIG.isRelay()) return;
-	if (CONFIG.isDebug()) Serial.println("RELAY: " + String(packet->getData()));
+	SERIAL_DEBUG_FORMAT(512, "RELAY: %s", packet->getData());
 	addFromMe(packet);
 	packet->setSrcId(getDeviceId());
 	loraSend(packet);
@@ -89,7 +107,7 @@ void LoRaProtocol::sendAckPacket(LoRaPacket* packet) {
 	ackPacket->setMode(LoRaPacket::modeACK);
 	ackPacket->setPacketId(packet->getPacketId());
 	setHopCount(ackPacket, 0);
-	ackPacket->setMessage((char*) String("ACK").c_str());
+	ackPacket->setMessage("ACK");
 
 	loraSend(ackPacket);
 	delete ackPacket;
@@ -97,24 +115,24 @@ void LoRaProtocol::sendAckPacket(LoRaPacket* packet) {
 
 
 void LoRaProtocol::processReceived(LoRaPacket* packet) {
-	if (isIgnoredSender(packet->getSrcId())) return;
+    if (isIgnoredSender(packet->getSrcId())) return;
 
-	if (packet->getMode() == LoRaPacket::modeACK) {
-		if (sentPacketId.isEmpty()) return;
-		if (packet->getPacketId() != sentPacketId) return;
-		
-		// here set setPacketId to "" because it's been ack'd
-		sentPacketId = "";
-		if (CONFIG.isDebug()) Serial.println("ACKED: " + packet->getPacketId());
-		return;
-	}
+    if (packet->getMode() == LoRaPacket::modeACK) {
+        if (sentPacketId[0] == '\0') return;  // Check if sentPacketId is empty
+        if (strcmp(packet->getPacketId(), sentPacketId) != 0) return; // Compare strings
 
-	if (!isFromMe(packet)) sendAckPacket(packet);
-	if (isSeen(packet)) return;
-		
-	int hopCount = decrementHopCount(packet);
-	if (hopCount >= 1) packet->setRelay();
-	if (hopCount >= 0) packet->setNew();
+        // Clear sentPacketId since it's been ack'd
+        sentPacketId[0] = '\0';
+        SERIAL_DEBUG_FORMAT(128, "ACKED: %s", packet->getPacketId());
+        return;
+    }
+
+    if (!isFromMe(packet)) sendAckPacket(packet);
+    if (isSeen(packet)) return;
+
+    int hopCount = decrementHopCount(packet);
+    if (hopCount >= 1) packet->setRelay();
+    if (hopCount >= 0) packet->setNew();
 }
 
 bool LoRaProtocol::isSeen(LoRaPacket* packet) {
@@ -172,19 +190,20 @@ void LoRaProtocol::inventPacketId(LoRaPacket* packet) {
 	addFromMe(packet);
 }
 
-void LoRaProtocol::setMessage(LoRaPacket* packet, char* message){
+void LoRaProtocol::setMessage(LoRaPacket* packet, const char* message){
 	packet->setMessage(message);
 }
 
 unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
-	String original = String(packet->getData());
-	String data = String(packet->getEncryptedData());
+	const char* original = packet->getData();
+	const char* data = packet->getEncryptedData();
+	
 	LoRaPacket* ackPacket = new LoRaPacket();
 	unsigned long long expire;
 	unsigned long long dt = 0;
 	
 	for (int i = 0; i < 3; i++) {
-		if (CONFIG.isDebug()) Serial.println("SEND: " + original);
+		SERIAL_DEBUG_FORMAT(512, "SEND: %s", original);
 		
 		dt = ullmillis();
 		LoRa.beginPacket();
@@ -193,49 +212,62 @@ unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
 		if (packet->getMode() == LoRaPacket::modeACK) return dt - ullmillis();
 
 		// Now wait for an ACK
-		sentPacketId = packet->getPacketId();
+		strncpy(sentPacketId, packet->getPacketId(), LoRaPacket::idSize);
+		sentPacketId[LoRaPacket::idSize] = '\0';
+
 		expire = ullmillis() + 3000;
 		while (ullmillis() < expire) {
 			receive(ackPacket);
 			
 			// sent packet is empty because it got ack'd
-			if (sentPacketId.isEmpty()) {
+			if (sentPacketId[0] == '\0') {
 				dt = ullmillis() - dt;
 				nextTxTime = ullmillis() + dt;
-				if (CONFIG.isDebug()) Serial.println("DONE: " + String((unsigned long) dt) + "ms");
+
+				SERIAL_DEBUG_FORMAT(64, "DONE: %lums", dt);
+
 				delete ackPacket;
 				return dt;
 			}
 		}
 	}
 
-	sentPacketId = "";
+	sentPacketId[0] = '\0';
 	delete ackPacket;
 	dt = ullmillis() - dt;
-	Serial.println("***NO ACK***: " + packet->getPacketId() + " " + String((unsigned long) dt));
+	
+	SERIAL_LOG_FORMAT(64, "***NO ACK***: %s %lu", packet->getPacketId(), dt);
+
 	return dt;
 }
 
 
-void LoRaProtocol::addSeen(char id[LoRaPacket::idSize + 1]) {
+void LoRaProtocol::addSeen(const char* id) {
 	strncpy(seen[currentSeen], id, LoRaPacket::idSize + 1); 
 	currentSeen++;
 	if (currentSeen >= SEEN_HISTORY) currentSeen = 0;
 }
 
 void LoRaProtocol::addFromMe(LoRaPacket* packet) {
-	strncpy(fromMe[currentSeen], packet->getDataAtId(), LoRaPacket::idSize); 
+	strncpy(fromMe[currentSeen], packet->getDataAtId(), LoRaPacket::idSize + 1); 
 	fromMe[currentSeen][LoRaPacket::idSize] = '\0';
 	currentFromMe++;
 	if (currentFromMe >= SEEN_HISTORY) currentFromMe = 0;
 }
 
-bool LoRaProtocol::isIgnoredSender(String sender) {
-	if (sender.isEmpty()) return false;
-	String ignore = CONFIG.getIgnore();
-	if (ignore.indexOf(sender) == -1) return false;
-	return true;	
+bool LoRaProtocol::isIgnoredSender(const char* sender) {
+    if (sender == nullptr || sender[0] == '\0') return false; // Check if sender is empty
+
+    const char* ignoreList = CONFIG.getIgnore();
+    if (ignoreList == nullptr) return false;
+
+    // Check if sender is in the ignore list
+    const char* found = strstr(ignoreList, sender);
+    if (found == nullptr) return false;
+
+    return true;
 }
+
 
 void LoRaProtocol::configure() {
 	this->lora->setSpreadingFactor(12);

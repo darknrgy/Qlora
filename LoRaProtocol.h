@@ -18,12 +18,12 @@ public:
 
 	LoRaProtocol(LoRaClass* lora);
 	bool listenAndRelay();
-	String getLastReply();
+	const char* getLastReply();
 	void receive(LoRaPacket* packet);
-	void send(String message, uint hops);
+	void send(const char* message, uint hops);
 	void relay(LoRaPacket* packet);
 	void configure();
-	bool isIgnoredSender(String sender);
+	bool isIgnoredSender(const char* sender);
 	
 
 private:
@@ -33,9 +33,11 @@ private:
 	int currentSeen = 0;
 	int currentFromMe = 0;
 	int currentIgnoredSender = 0;
-	String packetId;
-	String sentPacketId = "";
-	String lastReply;
+
+	char packetId     [LoRaPacket::idSize + 1];
+	char sentPacketId [LoRaPacket::idSize + 1];
+	char lastReply    [LoRaPacket::packetSize];
+
 	long nextTxTime = ullmillis();
 
 	void sendAckPacket(LoRaPacket* packet);
@@ -45,9 +47,9 @@ private:
 	uint64_t decrementHopCount(LoRaPacket* packet);
 	void setHopCount(LoRaPacket* packet, uint64_t hopCount);
     void inventPacketId(LoRaPacket* packet);
-    void setMessage(LoRaPacket* packet, char* message);
+    void setMessage(LoRaPacket* packet, const char* message);
     unsigned long  loraSend(LoRaPacket* packet);
-    void addSeen(char id[LoRaPacket::idSize + 1]);
+    void addSeen(const char* id);
     void addFromMe(LoRaPacket* packet);
 };
 

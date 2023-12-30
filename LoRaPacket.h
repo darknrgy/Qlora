@@ -10,21 +10,20 @@
 
 class LoRaPacket {
 public:
-	static const uint idSize = 8;
-	static const uint srcSize = 8;	
-	static const uint hopSize = 3;
-	static const uint modeSize = 1;
-	static const uint messageSize = 254 - 8- 8 - 3 - 1;
-	static const uint64_t packetSize = 256;
+	static const size_t idSize = 8;
+	static const size_t srcSize = 8;	
+	static const size_t hopSize = 3;
+	static const size_t modeSize = 1;
+	static const size_t messageSize = 254 - 8 - 8 - 3 - 1;
+	static const size_t packetSize = 256;
 
 	static const char modeMSG = '0';
 	static const char modeACK = '1';
 
 	LoRaPacket();
-	LoRaPacket(char* sourcePacket);
+	LoRaPacket(const char* sourcePacket);
 	
 	char* getData();
-	void setData(String data);
 
 	char* getDataAtId();
 	char* getDataAtSrc();
@@ -32,24 +31,24 @@ public:
 	char* getDataAtMode();
 	char* getDataAtMessage();
 
-	void setMessage(char* message);
-	void setSrcId(String id);
-	String getSrcId();
-	void setPacketId(String id);
-	String getPacketId();
+	void setMessage(const char* message);
+	void setSrcId(const char* id);
+	const char* getSrcId();
+	void setPacketId(const char* id);
+	const char* getPacketId();
 	bool isNew();
 	void setNew();
 	bool isRelay();
 	void setRelay();
 	void setMode(char mode);
 	char getMode();
-	String getEncryptedData();
+	const char* getEncryptedData();
 	void decrypt();
 
 	~LoRaPacket();
 
 private:
-	char *data;
+	char data[packetSize];
 	bool newPacket = false;
 	bool relay = false;
 };

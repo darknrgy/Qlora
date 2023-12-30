@@ -7,7 +7,11 @@
 #include "sleep.h"
 
 LoRaProtocol lora(&LoRa);
-Sleep sleepManager(&LoRa);
+Sleep        sleepManager(&LoRa);
+
+
+static const size_t maxUserInput = 512;
+
 
 void setup() {
 	pinMode(LED_BUILTIN, OUTPUT);
@@ -27,129 +31,180 @@ void setup() {
 }
 
 void loop() {
-	String reply;
-	static unsigned long long nextPingTime = 0;
+    static char reply[LoRaPacket::packetSize];
+    static unsigned long long nextPingTime = 0;
 
-	if (lora.listenAndRelay()) sleepManager.extendAwake();
+    if (lora.listenAndRelay()) sleepManager.extendAwake();
 
-	reply = lora.getLastReply();
-	
-	// Handle remote config changes
-	if (reply.startsWith("//")) {
-		reply.replace("\n", " ");
+    strncpy(reply, lora.getLastReply(), LoRaPacket::packetSize-1);
+    reply[LoRaPacket::packetSize - 1] = '\0'; // Ensure null termination
 
-		if (reply.startsWith("////")) {
-			if (reply.substring(4, 12) == getDeviceId()) {
-				// This command is addressed to me
-				runCmd(reply.substring(13));
-			}
-			return;
-		}
+    // Handle remote config changes
+    if (strncmp(reply, "//", 2) == 0) {
+        replaceNewlineWithSpace(reply);
 
-		runCmd(reply);
-		return;
-	}
+        if (strncmp(reply, "////", 4) == 0) {
+            if (strncmp(reply + 4, getDeviceId(), 8) == 0) {
+                // This command is addressed to me
+                runCmd(reply + 13);
+            }
+            return;
+        }
 
-	if (Serial.available() > 0) {
-		sleepManager.extendAwake();
-		String userInput = "";
-		
-		while (true) {
-			while (Serial.available() > 0) {			
-				char c = Serial.read();
-				if (c != -1) {
-					if ((int) c < 0x01 || (int) c > 0x7F) {
-						Serial.println("Character " + String(c) + " ommitted; chars must be ascii");
-					} else {
-						userInput += c;	
-					}					
-				} else {
-					delay(2);
-				}			
-			}
-			delay(20);
-			if (Serial.available() == 0) break;
-		}
+        runCmd(reply);
+        return;
+    }
 
-		userInput.replace("\n", " ");
+    if (Serial.available() > 0) {
+        sleepManager.extendAwake();
+        char userInput[maxUserInput] = {0}; // Initialize with all zeros
+        int userInputLength = 0;
 
-		if (userInput.startsWith("/")) {
-			if (userInput.startsWith("////")) {
-				lora.send(userInput, CONFIG.getHops());
-				return;
-			}
+        while (true) {
+            while (Serial.available() > 0 && userInputLength < maxUserInput - 1) {
+                char c = Serial.read();
+                if (c != -1) {
+                    if ((int)c < 0x01 || (int)c > 0x7F) {
+                        Serial.print("Character ");
+                        Serial.print(c);
+                        Serial.println(" omitted; chars must be ascii");
+                    } else {
+                        userInput[userInputLength++] = c;
+                    }
+                } else {
+                    delay(2);
+                }
+            }
+            delay(20);
+            if (Serial.available() == 0) break;
+        }
+        userInput[userInputLength] = '\0'; // Null-terminate the string
+        replaceNewlineWithSpace(userInput);
 
-			if (userInput.startsWith("///")) {
-				// Run command on self and all other nodes
-				lora.send(userInput, CONFIG.getHops());
-				runCmd(userInput);
-				return;
-			}
-			
-			if (userInput.startsWith("//")) {
-				// Run on the nearest node, but not on self (start remote ping for example)
-				lora.send(userInput, 1);
-				runCmd(userInput);
-				return;
-			}
+        if (userInput[0] == '/') {
+            if (strncmp(userInput, "////", 4) == 0) {
+                lora.send(userInput, CONFIG.getHops());
+                return;
+            }
 
-			runCmd(userInput);
-			return;
-		}
-		
-		Serial.println("<<< " + CONFIG.getName() + ": " + userInput);
-		lora.send(CONFIG.getName() + ": " + userInput, CONFIG.getHops());
-	}
+            if (strncmp(userInput, "///", 3) == 0) {
+                lora.send(userInput, CONFIG.getHops());
+                runCmd(userInput);
+                return;
+            }
 
-	ping(-1);
-	sleepManager.sleepIfShould();
+            if (strncmp(userInput, "//", 2) == 0) {
+                lora.send(userInput, 1);
+                runCmd(userInput);
+                return;
+            }
+
+            runCmd(userInput);
+            return;
+        }
+
+
+        char message[maxUserInput + 50]; // To accommodate additional text
+        sprintf(message, "%s: %s", CONFIG.getName(), userInput);
+        Serial.print("<<< ");
+        Serial.println(message);
+        lora.send(message, CONFIG.getHops());
+    }
+
+    ping(-1);
+    sleepManager.sleepIfShould();
 }
 
+// Helper function to replace newline with space
+void replaceNewlineWithSpace(char* str) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] == '\n') {
+            str[i] = ' ';
+        }
+    }
+}
 
-void runCmd(String userInput) {
-	userInput.replace("/", "");
-	String cmd = getNextCommandPart(&userInput);
+void runCmd(char* userInput) {
+    // Remove all '/' characters from the beginning of userInput
+    char* cmdStart = userInput;
+    while (*cmdStart == '/') {
+        cmdStart++;
+    }
 
-	if (cmd == "ping") {
-		ping(1);
-		Serial.println("PING enabled");
-	} else if (cmd == "unping") {
-		ping(0);
-		Serial.println("PING disabled");
-	} else if (cmd == "debug") {
-		CONFIG.toggleDebug();
-	} else if (cmd == "blink") {
-		for (int i = 0; i < 3; i++) {
-			digitalWrite(LED_BUILTIN, LOW); delay(300); digitalWrite(LED_BUILTIN, HIGH); delay(300);
-		}
-	} else if (cmd == "set") {
-		setConfig(userInput);
-	} else if (cmd == "relay") {
-		CONFIG.toggleRelay();		
-	} else if (cmd == "voltage") {
-		float bank1 = getBatteryVoltage(VOLTAGE_READ_PIN0);
-		float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
-		bank1 -= bank2;
-		
-		String voltageString = "Voltage " + getDeviceId() + ": BANK1: " + String(bank1,2) + ", BANK2: " + String(bank2, 2);
-		Serial.println(voltageString);
-		lora.send(voltageString, CONFIG.getHops());
-	} else if (cmd == "get") {
-		String deviceID = getNextCommandPart(&userInput);
-		String myDeviceId = getDeviceId();
-		String send = myDeviceId + ": " + CONFIG.getAllAsString();
-		if (!deviceID.isEmpty()) {			
-			if (deviceID == myDeviceId) {
-				lora.send(send, CONFIG.getHops());
+    char cmd[maxUserInput];
+    getNextCommandPart(cmdStart, cmd); // Extract the first command part
+
+    if (strcmp(cmd, "ping") == 0) {
+
+        ping(1);
+        Serial.println("PING enabled");
+
+    } else if (strcmp(cmd, "unping") == 0) {
+
+        ping(0);
+        Serial.println("PING disabled");
+
+    } else if (strcmp(cmd, "debug") == 0) {
+
+        CONFIG.toggleDebug();
+
+    } else if (strcmp(cmd, "blink") == 0) {
+        for (int i = 0; i < 3; i++) {
+            digitalWrite(LED_BUILTIN, LOW); delay(300); digitalWrite(LED_BUILTIN, HIGH); delay(300);
+        }
+    } else if (strcmp(cmd, "set") == 0) {
+
+        setConfig(cmdStart);
+
+    } else if (strcmp(cmd, "relay") == 0) {
+
+        CONFIG.toggleRelay();
+
+    } else if (strcmp(cmd, "voltage") == 0) {
+
+        float bank1 = getBatteryVoltage(VOLTAGE_READ_PIN0);
+        float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
+        bank1 -= bank2;
+        
+        char voltageString[128]; // Stack allocation (temporary)
+        sprintf(voltageString, "Voltage %s: BANK1: %.2f BANK2: %.2f", getDeviceId(), bank1, bank2);
+        Serial.println(voltageString);
+
+        lora.send(voltageString, CONFIG.getHops());
+
+    } else if (strcmp(cmd, "get") == 0) {
+
+		char deviceID[LoRaPacket::idSize + 1]; 
+		getNextCommandPart(cmdStart, deviceID);
+		deviceID[LoRaPacket::idSize] = '\0';
+
+		char config[maxUserInput];
+		CONFIG.getAllAsString(config, maxUserInput-1);
+
+		char send[maxUserInput]; // Stack allocation (temporary)
+		snprintf(send, maxUserInput-1, "%s: %s", getDeviceId(), config);
+		send[maxUserInput-1] = '\0';
+
+		if (deviceID[0] != '\0') { // If not an empty string
+			// strcmp returns 0 when strings are equal
+			if (!strcmp(deviceID, getDeviceId())) { 
+				lora.send(send, CONFIG.getHops()); // Temp, this will change to const char*
 			}
 			return;
 		}
+
 		Serial.println(send);
-	} else if (cmd == "gain") {
-		long gain = getNextCommandPart(&userInput).toInt();
-		lora.lora->setGain(gain);
-		Serial.println("Gain set to " + String(gain));
-	} else if (cmd == "help") {
+
+	} else if (strcmp(cmd, "gain") == 0) {
+
+        char gainStr[maxUserInput];
+        getNextCommandPart(cmdStart, gainStr);
+        long gain = atol(gainStr);
+        lora.lora->setGain(gain);
+        SERIAL_LOG_FORMAT(64, "Gain set to %ld", &gain);
+
+    } else if (strcmp(cmd, "help") == 0) {
+
 		Serial.println("\nHELP (list of all commands):");
 		Serial.println("/get (list all saved configs)");
 		Serial.println("/set <param> <value>");
@@ -172,41 +227,55 @@ void runCmd(String userInput) {
 		Serial.println("/gain 0 - 6 (not saved with config");
 		Serial.println("In general: / (me), // (next hop), /// (every device), ////<deviceID> (addressed to device");
 		Serial.println("Caution: You can get into trouble by doing things like ///ping, which will permanently flood the network");
+
 	} else {
-		Serial.println("Unrecognized command: " + String(cmd) + " Type /help for help");
+		SERIAL_LOG_FORMAT(128, "Unrecognized command: %s Type /help for help", cmd);
 	}
 }
 
-void setConfig(String userInput) {
-	String param = getNextCommandPart(&userInput);
-	String value = getNextCommandPart(&userInput);
+void setConfig(char* userInput) {
+    char param[maxUserInput];
+    getNextCommandPart(userInput, param);
 
-	if (param == "bandwidth") {
-		CONFIG.setBandwidth(value.toInt());
-	} else if (param == "channel") {
-		CONFIG.setChannel(value.toInt());		
-	} else if (param == "power") {
-		CONFIG.setPower(value.toInt());
-	} else if (param == "hops") {
-		CONFIG.setHops(value.toInt());
-	} else if (param == "name") {
-		CONFIG.setName(value);
-	} else if (param == "ignore") {
-		CONFIG.setIgnore(value);
-	}
+    char value[maxUserInput];
+    getNextCommandPart(userInput, value);
+
+    if (strcmp(param, "bandwidth") == 0) {
+        CONFIG.setBandwidth(atoi(value));
+    } else if (strcmp(param, "channel") == 0) {
+        CONFIG.setChannel(atoi(value));      
+    } else if (strcmp(param, "power") == 0) {
+        CONFIG.setPower(atoi(value));
+    } else if (strcmp(param, "hops") == 0) {
+        CONFIG.setHops(atoi(value));
+    } else if (strcmp(param, "name") == 0) {
+        CONFIG.setName(value);
+    } else if (strcmp(param, "ignore") == 0) {
+        CONFIG.setIgnore(value);
+    }
 }
 
-String getNextCommandPart(String* input) {
-	int spaceIndex = input->indexOf(" ");
 
-	if (spaceIndex == -1) {
-        return *input;
+void getNextCommandPart(char* input, char* nextPart) {
+    // Find the first space in the input
+    char* spacePtr = strchr(input, ' ');
+    if (spacePtr == NULL) {
+        // No space found, copy the whole input to nextPart
+        strncpy(nextPart, input, maxUserInput - 1);
+        nextPart[maxUserInput - 1] = '\0'; // Ensure null termination
+        input[0] = '\0'; // Clear the input
+        return;
     }
 
-	String next = input->substring(0, spaceIndex);
-	input->remove(0, input->indexOf(" ") + 1);
-	return next;
+    // Calculate the length of the next part
+    int nextPartLength = spacePtr - input;
+    strncpy(nextPart, input, nextPartLength);
+    nextPart[nextPartLength] = '\0'; // Ensure null termination
+
+    // Shift the remainder of input to the beginning
+    memmove(input, spacePtr + 1, strlen(spacePtr + 1) + 1); // +1 to include the null terminator
 }
+
 
 void ping(int enable) {
 	static int enabled = 0;

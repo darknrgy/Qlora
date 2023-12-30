@@ -2,25 +2,15 @@
 
 
 LoRaPacket::LoRaPacket() {
-	data = new char[packetSize]();
 }
 
-LoRaPacket::LoRaPacket(char* data) {
-	data = new char[packetSize]();
-	if (data != nullptr) {
-		strncpy(data, data, 256);
-		data[256] = '\0';
-	}
+LoRaPacket::LoRaPacket(const char* input) {
+	strncpy(data, input, packetSize);
+	data[packetSize-1] = '\0';
 }
 
 char* LoRaPacket::getData()  {
 	return data;
-}
-
-void LoRaPacket::setData(String data) {
-	for (int i = 0; i < data.length(); i++) {
-		this->data[i] = data[i];
-	}
 }
 
 char* LoRaPacket::getDataAtId() {
@@ -43,29 +33,39 @@ char* LoRaPacket::getDataAtMessage() {
 	return data + idSize + srcSize + hopSize + modeSize;
 }
 
-void LoRaPacket::setMessage(char* message) {
-	memcpy(data + idSize + srcSize + hopSize + modeSize, message, messageSize);
-	data[255] = '\0';
+void LoRaPacket::setMessage(const char* message) {
+	strncpy(data + idSize + srcSize + hopSize + modeSize, message, messageSize);
+	data[packetSize-1] = '\0';
 }
 
-void LoRaPacket::setSrcId(String id) {
-	memcpy(getDataAtSrc(), (char*) id.c_str(), srcSize);
+void LoRaPacket::setSrcId(const char* id) {
+	memcpy(getDataAtSrc(), id, srcSize);
 }
 
-String LoRaPacket::getSrcId() {
-	return String(data).substring(idSize, idSize + srcSize);
+//@TODO - convert this to pass buffer in
+const char* LoRaPacket::getSrcId() {
+    static char srcId[srcSize + 1];         // Buffer for srcSize characters + null terminator
+    
+    strncpy(srcId, data + idSize, srcSize); // Copy srcSize characters starting from idSize
+    srcId[srcSize] = '\0';
+
+    return srcId;
 }
 
-void LoRaPacket::setPacketId(String id) {
-	memcpy(getDataAtId(), (char*) id.c_str(), idSize);
+void LoRaPacket::setPacketId(const char* id) {
+	memcpy(getDataAtId(), id, idSize);
 }
 
-String LoRaPacket::getPacketId() {
-	String packetId;
-	for (unsigned int i = 0; i < idSize && data[i] != '\0'; ++i) {
-		packetId += data[i];
-	}
-	return packetId;
+//@TODO - convert this to pass buffer in
+const char* LoRaPacket::getPacketId() {
+    static char packetId[idSize + 1];       // Buffer for idSize characters + null terminator
+
+    for (uint i = 0; i < idSize && data[i] != '\0'; ++i) {
+        packetId[i] = data[i];
+    }
+    packetId[idSize] = '\0';
+
+    return packetId;
 }
 
 bool LoRaPacket::isNew() {
@@ -92,18 +92,27 @@ char LoRaPacket::getMode() {
 	return data[idSize + srcSize + hopSize];
 }
 
-String LoRaPacket::getEncryptedData() {
-	String dataString = String(data);
-	String subPacket = dataString.substring(idSize, dataString.length());
-	subPacket = Encryption::encrypt(subPacket, getPacketId());
-	return String(getPacketId() + subPacket);
+//@TODO - convert this to pass buffer in
+const char* LoRaPacket::getEncryptedData() {
+    static char encryptedData[packetSize + idSize]; // Adjust size as needed
+    char subPacket[packetSize]; // Temporary buffer for the substring
+
+    // Copying the relevant part of data into subPacket
+    strncpy(subPacket, data + idSize, packetSize - idSize);
+    subPacket[packetSize - idSize] = '\0'; // Ensure null termination
+
+    // Encrypting the subPacket
+    const char* encryptedSubPacket = Encryption::encrypt(subPacket, getPacketId());
+
+    // Concatenating getPacketId() and encryptedSubPacket
+    strcpy(encryptedData, getPacketId());
+    strcat(encryptedData, encryptedSubPacket);
+
+    return encryptedData;
 }
 
 void LoRaPacket::decrypt() {
-	String decryptedData = getEncryptedData();
-	memcpy(getData(), (char*) decryptedData.c_str(), decryptedData.length());
+	strcpy(getData(), getEncryptedData());
 }
 
-LoRaPacket::~LoRaPacket() {
-    delete[] data;
-}
+LoRaPacket::~LoRaPacket() {}
