@@ -72,7 +72,6 @@ void LoRaProtocol::send(const char* message, uint hops) {
 	setHopCount(packet, hops);
 	packet->setMessage(message);
 	currentPacket = (currentPacket + 1) % PACKET_QUEUE_SIZE;
-	Serial.println("currentPacket: " + String(currentPacket));
 }
 
 void LoRaProtocol::sendNextPacketInQueue() {
