@@ -120,8 +120,10 @@ void handleUserInput(char* userInput)
         lora.send(message, CONFIG.getHops());
     }
 
-    lora.sendNextPacketInQueue();
-
+    if (!lora.isInRXMode()) {
+    	lora.sendNextPacketInQueue();	
+    }
+    
     ping(-1);
     sleepManager.sleepIfShould();
 }

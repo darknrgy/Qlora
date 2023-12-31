@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "config.h"
+#include <LoRa.h>
 
 float getBatteryVoltage(int pin);
 float correctVoltage(float inputValue);
