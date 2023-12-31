@@ -98,7 +98,7 @@ void LoRaProtocol::relay(LoRaPacket* packet) {
 	relayPacket->setSrcId(getDeviceId());
 	relayPacket->reset();
 	addFromMe(relayPacket);
-	
+
 	currentPacket = (currentPacket + 1) % PACKET_QUEUE_SIZE;
 }
 
@@ -211,6 +211,7 @@ unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
 	unsigned long long expire;
 	unsigned long long dt = 0;
 	unsigned long long rxWait = 0;
+	unsigned long long rxWaitRandom = 0;
 
 	static char isRxMode;	
 	
@@ -218,10 +219,11 @@ unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
 
 	// wait if the module is has detected an RX signal (clears when RX is done)
 	rxWait = 0;
+	rxWaitRandom = random(100,500);
 	while (true) {
-		isRxMode = LoRa.readRegister(0x18) & 0x03;
+		isRxMode = isInRXMode();
 		if (rxWait == 0 && !isRxMode) {
-			rxWait = ullmillis() + random(100,200);
+			rxWait = ullmillis() + rxWaitRandom;
 		}
 
 		if (isRxMode) {
@@ -281,4 +283,6 @@ void LoRaProtocol::configure() {
 	this->lora->enableLowDataRateOptimize();
 }
 
-
+bool LoRaProtocol::isInRXMode() {
+	return LoRa.readRegister(0x18) & 0x03;
+}

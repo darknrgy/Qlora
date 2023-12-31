@@ -28,6 +28,7 @@ public:
 	void relay(LoRaPacket* packet);
 	void configure();
 	bool isIgnoredSender(const char* sender);
+	bool isInRXMode();
 	
 
 private:
