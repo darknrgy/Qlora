@@ -112,6 +112,8 @@ void loop() {
         lora.send(message, CONFIG.getHops());
     }
 
+    lora.sendNextPacketInQueue();
+
     ping(-1);
     sleepManager.sleepIfShould();
 }
