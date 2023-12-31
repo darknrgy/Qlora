@@ -329,8 +329,8 @@ void ping(int enable) {
 	
 	if (enable == -1 && enabled == 1) {
 		if (ullmillis() >= nextPingTime) {
-			nextPingTime = ullmillis() + 10000;
-			serialPrintln("<<< PING");
+			nextPingTime = ullmillis() + 15000;
+			Serial.println("<<< PING");
 			lora.send("PING", CONFIG.getHops());
 			sleepManager.extendAwake();			
 		} 

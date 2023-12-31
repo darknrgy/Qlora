@@ -204,10 +204,31 @@ unsigned long LoRaProtocol::loraSend(LoRaPacket* packet) {
 	LoRaPacket* ackPacket = new LoRaPacket();
 	unsigned long long expire;
 	unsigned long long dt = 0;
+	unsigned long long rxWait = 0;
+
+	static char isRxMode;
 	
 	for (int i = 0; i < 3; i++) {
 		SERIAL_DEBUG_FORMAT(512, "SEND: %s", original);
-		
+
+		// wait if the module is has detected an RX signal (clears when RX is done)
+		rxWait = 0;
+		while (true) {
+			isRxMode = LoRa.readRegister(0x18) & 0x03;
+			if (rxWait == 0 && !isRxMode) {
+				rxWait = ullmillis() + random(100,200);
+			}
+
+			if (isRxMode) {
+				// Serial.print(".");
+				rxWait = 0;
+			}
+
+			if (rxWait && ullmillis() > rxWait) {
+				break;
+			}
+		}
+
 		dt = ullmillis();
 		LoRa.beginPacket();
 		LoRa.print(data);
