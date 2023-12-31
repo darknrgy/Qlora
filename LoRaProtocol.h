@@ -11,6 +11,9 @@
 
 #define SEEN_HISTORY 16
 #define PACKET_HOPS 8
+#define ACK_QUEUE_SIZE 10
+#define PACKET_QUEUE_SIZE 10
+
 
 class LoRaProtocol {
 public:
@@ -19,8 +22,9 @@ public:
 	LoRaProtocol(LoRaClass* lora);
 	bool listenAndRelay();
 	const char* getLastReply();
-	void receive(LoRaPacket* packet);
+	bool receive(LoRaPacket* packet);
 	void send(const char* message, uint hops);
+	void sendNextPacketInQueue();
 	void relay(LoRaPacket* packet);
 	void configure();
 	bool isIgnoredSender(const char* sender);
@@ -38,6 +42,12 @@ private:
 	char sentPacketId [LoRaPacket::idSize + 1];
 	char lastReply    [LoRaPacket::packetSize];
 
+	char ackQueue[ACK_QUEUE_SIZE][LoRaPacket::idSize + 1];
+	uint8_t currentAck = 0;
+	
+	LoRaPacket sendQueue[PACKET_QUEUE_SIZE];
+	uint8_t currentPacket = 0;
+
 	long nextTxTime = ullmillis();
 
 	void sendAckPacket(LoRaPacket* packet);
@@ -51,6 +61,7 @@ private:
     unsigned long  loraSend(LoRaPacket* packet);
     void addSeen(const char* id);
     void addFromMe(LoRaPacket* packet);
+
 };
 
 #endif // LORAPROTOCOL_H
