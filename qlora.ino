@@ -112,6 +112,10 @@ void loop() {
         lora.send(message, CONFIG.getHops());
     }
 
+    if (!lora.isInRXMode()) {
+    	lora.sendNextPacketInQueue();	
+    }
+    
     ping(-1);
     sleepManager.sleepIfShould();
 }
@@ -320,7 +324,7 @@ void ping(int enable) {
 	
 	if (enable == -1 && enabled == 1) {
 		if (ullmillis() >= nextPingTime) {
-			nextPingTime = ullmillis() + 10000;
+			nextPingTime = ullmillis() + 15000;
 			Serial.println("<<< PING");
 			lora.send("PING", CONFIG.getHops());
 			sleepManager.extendAwake();			
