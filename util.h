@@ -12,14 +12,27 @@ const char* getDeviceId();
     do { \
         char output[BUFFER_SIZE]; \
         snprintf(output, BUFFER_SIZE, FORMAT, __VA_ARGS__); \
-        Serial.println(output); \
+        serialPrintln(output); \
     } while (0)
 
 #define SERIAL_DEBUG_FORMAT(BUFFER_SIZE, FORMAT, ...) \
     if (CONFIG.isDebug()) { \
         char output[BUFFER_SIZE]; \
         snprintf(output, BUFFER_SIZE, FORMAT, __VA_ARGS__); \
-        Serial.println(output); \
+        serialPrintln(output); \
     }
+
+// Helper function to replace newline with space
+inline void replaceNewlineWithSpace(char* str) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] == '\n') {
+            str[i] = ' ';
+        }
+    }
+}
+
+void serialPrint(const char* text);
+void serialPrintln(const char* line);
+
 
 #endif

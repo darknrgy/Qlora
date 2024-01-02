@@ -1,5 +1,7 @@
 #include "encryption.h"
 #include "key.h"
+#include "util.h"
+
 
 const char* Encryption::encrypt(const char* msg, const char* seed) {
     static char encryptedMsg[maxMessageSize];
@@ -33,7 +35,7 @@ void Encryption::xorCipher(const char* msg, const char* key, char replaceNull, c
     for (size_t i = 0; i < msgLength; ++i) {
         char encryptedChar = msg[i] ^ key[i % keySize];
         if (replaceNull == 0x00 && encryptedChar == 0x00) {
-            Serial.println("0x00 FOUND!");
+            serialPrintln("0x00 FOUND!");
         }
         if (encryptedChar == 0x00) encryptedChar = replaceNull;
         output[i] = encryptedChar;

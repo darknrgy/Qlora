@@ -74,7 +74,7 @@ bool Config::isRelay() {
 
 void Config::setPower(long power) {
 	if (power < 1 || power > 20) {
-		Serial.println("Power must be between 1 and 20");
+		serialPrintln("Power must be between 1 and 20");
 		return;
 	}
 	this->power = power;
@@ -89,7 +89,7 @@ long Config::getPower() {
 
 void Config::setChannel(long channel) {
 	if (channel < 1 || channel > 128) {
-		Serial.println("Channel must be between 1 and 128");
+		serialPrintln("Channel must be between 1 and 128");
 		return;
 	}
 	this->channel = channel;
@@ -110,7 +110,7 @@ long Config::getFrequency() {
 
 void Config::setHops(long hops){
 	if (hops < 1 || hops > 20) {
-		Serial.println("Hops must be between 1 and 20");
+		serialPrintln("Hops must be between 1 and 20");
 		return;
 	}
 	this->hops = hops;
@@ -124,7 +124,7 @@ long Config::getHops(){
 void Config::setName(const char* name) {
     size_t nameLength = strlen(name);
     if (nameLength < 1 || nameLength > maxNameSize) {
-        Serial.println("Name must be between 1 and 127 chars");
+        serialPrintln("Name must be between 1 and 127 chars");
         return;
     }
     strncpy(this->name, name, maxNameSize-1);
@@ -140,7 +140,7 @@ const char* Config::getName(){
 void Config::setIgnore(const char* ignore) {
 	int len = strnlen(ignore, maxIgnoreSize-1);
 	if (len < 1 || len > maxIgnoreSize-1) {
-		Serial.println("Ignore must be 15 ids at most");
+		serialPrintln("Ignore must be 15 ids at most");
 	}
 	
 	strncpy(this->ignore, ignore, maxIgnoreSize-1);
@@ -180,7 +180,7 @@ void Config::save() {
 	prefs.putString("ignore", ignore);
 
 	prefs.end();
-	Serial.println("Configuration saved");
+	serialPrintln("Configuration saved");
 }
 
 void Config::getAllAsString(char* buffer, size_t bufferSize) {

@@ -23,8 +23,8 @@ bool LoRaProtocol::listenAndRelay() {
         int rssi = LoRa.packetRssi();
         SERIAL_DEBUG_FORMAT(64, "RSSI %d", rssi);
 
-        Serial.print(">>> ");
-        Serial.println(lastReply);
+        serialPrint(">>> ");
+        serialPrintln(lastReply);
         active = true;
     }
 
