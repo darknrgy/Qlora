@@ -24,10 +24,10 @@ const char* getDeviceId();
     }
 
 // Helper function to replace newline with space
-inline void replaceNewlineWithSpace(char* str) {
+inline void replaceNewlineWithNullTerm(char* str) {
     for (int i = 0; str[i] != '\0'; i++) {
         if (str[i] == '\n') {
-            str[i] = ' ';
+            str[i] = '\0';
         }
     }
 }

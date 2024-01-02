@@ -12,13 +12,11 @@
 #include "sleep.h"
 #include "command.h"
 
-WebServerInterface serverInterface;
-
-
 static const size_t maxUserInput = 512;
 
-LoRaProtocol lora(&LoRa);
-Sleep        sleepManager(&LoRa);
+LoRaProtocol       lora(&LoRa);
+Sleep              sleepManager(&LoRa);
+WebServerInterface serverInterface;
 
 
 void setup() {
@@ -36,8 +34,6 @@ void setup() {
 
 	CONFIG.setLora(&lora);
 	CONFIG.load();
-
-	serverInterface.init();
 }
 
 void loop() {
@@ -51,7 +47,7 @@ void loop() {
 
 	// Handle remote config changes
 	if (strncmp(reply, "//", 2) == 0) {
-		replaceNewlineWithSpace(reply);
+		replaceNewlineWithNullTerm(reply);
 
 		if (strncmp(reply, "////", 4) == 0) {
 			if (strncmp(reply + 4, getDeviceId(), 8) == 0) {
@@ -87,7 +83,6 @@ void loop() {
             if (Serial.available() == 0) break;
         }
         userInput[userInputLength] = '\0'; // Null-terminate the string
-        
         handleUserInput(userInput);
     }
     
@@ -102,7 +97,7 @@ void loop() {
 
 void handleUserInput(char* userInput)
 {
-	replaceNewlineWithSpace(userInput);
+	replaceNewlineWithNullTerm(userInput);
 
 	if (userInput[0] == '/') {
 		if (strncmp(userInput, "////", 4) == 0) {
@@ -123,13 +118,6 @@ void handleUserInput(char* userInput)
         Serial.println(message);
         lora.send(message, CONFIG.getHops());
     }
-
-    if (!lora.isInRXMode()) {
-    	lora.sendNextPacketInQueue();	
-    }
-    
-    ping(-1);
-    sleepManager.sleepIfShould();
 }
 
 // Register our commands here

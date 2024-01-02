@@ -41,6 +41,8 @@ public:
 
 	static const size_t maxNameSize = 128;
 	static const size_t maxIgnoreSize = 256;
+	static const size_t maxSSIDSize = 128;
+	static const size_t maxPasswordSize = 128;
 
 	void setLora(LoRaProtocol* lora);
 	void load();
@@ -69,6 +71,12 @@ public:
 	void setIgnore(const char* ignore);
 	const char* getIgnore();
 
+	void setSSID(const char* ssid);
+	const char* getSSID();
+
+	void setPassword(const char* password);
+	const char* getPassword();
+
 	long getFrequency();
 
 	void setDefaults();
@@ -92,6 +100,8 @@ private:
 	
 	char name[maxNameSize];
 	char ignore[maxIgnoreSize];
+	char ssid[maxSSIDSize];
+	char password[maxPasswordSize];
 
 	Preferences prefs;
 

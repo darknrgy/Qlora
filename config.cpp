@@ -207,6 +207,8 @@ void Config::save() {
 	prefs.putLong("hops", hops);
 	prefs.putString("name", name);
 	prefs.putString("ignore", ignore);
+	prefs.putString("ssid", ssid);
+	prefs.putString("password", password);
 
 	prefs.end();
 	serialPrintln("Configuration saved");

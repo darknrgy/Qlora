@@ -10,8 +10,20 @@
 
 class WebServerInterface
 {
+private:
+	bool wifiRunning;
+	bool serverRunning;
+
 public:
-	void init();
+	void listWifi();
+	void printStatus();
+
+	void startWifi();
+	void stopWifi();
+
+	void startServer();
+	void stopServer();
+
 	void update();
 };
 
