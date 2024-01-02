@@ -41,34 +41,34 @@ void setup() {
 }
 
 void loop() {
-    static char reply[LoRaPacket::packetSize];
-    static unsigned long long nextPingTime = 0;
+	static char reply[LoRaPacket::packetSize];
+	static unsigned long long nextPingTime = 0;
 
-    if (lora.listenAndRelay()) sleepManager.extendAwake();
+	if (lora.listenAndRelay()) sleepManager.extendAwake();
 
-    strncpy(reply, lora.getLastReply(), LoRaPacket::packetSize-1);
-    reply[LoRaPacket::packetSize - 1] = '\0'; // Ensure null termination
+	strncpy(reply, lora.getLastReply(), LoRaPacket::packetSize-1);
+	reply[LoRaPacket::packetSize - 1] = '\0'; // Ensure null termination
 
-    // Handle remote config changes
-    if (strncmp(reply, "//", 2) == 0) {
-        replaceNewlineWithSpace(reply);
+	// Handle remote config changes
+	if (strncmp(reply, "//", 2) == 0) {
+		replaceNewlineWithSpace(reply);
 
-        if (strncmp(reply, "////", 4) == 0) {
-            if (strncmp(reply + 4, getDeviceId(), 8) == 0) {
-                // This command is addressed to me
-                runCmd(reply + 13);
-            }
-            return;
-        }
+		if (strncmp(reply, "////", 4) == 0) {
+			if (strncmp(reply + 4, getDeviceId(), 8) == 0) {
+				// This command is addressed to me
+				runCmd(reply + 13);
+			}
+			return;
+		}
 
-        runCmd(reply);
-        return;
-    }
+		runCmd(reply);
+		return;
+	}
 
-    if (Serial.available() > 0) {
-        sleepManager.extendAwake();
-        char userInput[maxUserInput] = {0}; // Initialize with all zeros
-        int userInputLength = 0;
+	if (Serial.available() > 0) {
+		sleepManager.extendAwake();
+		char userInput[maxUserInput] = {0}; // Initialize with all zeros
+		int userInputLength = 0;
 
         while (true) {
             while (Serial.available() > 0 && userInputLength < maxUserInput - 1) {
@@ -90,7 +90,11 @@ void loop() {
         
         handleUserInput(userInput);
     }
-
+    
+	if (!lora.isInRXMode()) {
+		lora.sendNextPacketInQueue();	
+	}
+	
     ping(-1);
     serverInterface.update();
     sleepManager.sleepIfShould();
@@ -100,17 +104,17 @@ void handleUserInput(char* userInput)
 {
 	replaceNewlineWithSpace(userInput);
 
-	 if (userInput[0] == '/') {
-        if (strncmp(userInput, "////", 4) == 0) {
-            lora.send(userInput, CONFIG.getHops());
-            return;
-        }
+	if (userInput[0] == '/') {
+		if (strncmp(userInput, "////", 4) == 0) {
+			lora.send(userInput, CONFIG.getHops());
+			return;
+		}
 
-        if (strncmp(userInput, "///", 3) == 0) {
-            lora.send(userInput, CONFIG.getHops());
-            runCmd(userInput);
-            return;
-        }
+		if (strncmp(userInput, "///", 3) == 0) {
+			lora.send(userInput, CONFIG.getHops());
+			runCmd(userInput);
+			return;
+		}
 
 
         char message[maxUserInput + 50]; // To accommodate additional text
@@ -132,49 +136,69 @@ void handleUserInput(char* userInput)
 // Arduino puts function definitions above setup() so we have to declare this
 // below where the definitions get inserted.
 Command commands[] {
-	Command("ping",    cmdPing),
-	Command("unping",  cmdUnping),
-	Command("debug",   cmdDebug),
-	Command("blink",   cmdBlink),
-	Command("relay",   cmdRelay),
-	Command("voltage", cmdVoltage),
-	Command("set",     cmdSet),
-	Command("get",     cmdGet),
-	Command("gain",    cmdGain),
-	Command("help",    cmdHelp),
+	Command("ping",         cmdPing),
+	Command("unping",       cmdUnping),
+
+	Command("debug",        cmdDebug),
+	Command("blink",        cmdBlink),
+	Command("relay",        cmdRelay),
+	Command("voltage",      cmdVoltage),
+	Command("gain",         cmdGain),
+
+	Command("set",          cmdSet),
+	Command("get",          cmdGet),
+
+	Command("wifi-list",    cmdListWifi),
+	Command("wifi-start",   cmdStartWifi),
+	Command("wifi-status",  cmdPrintStatus),
+	Command("wifi-stop",    cmdStopWifi),
+
+	Command("server-start", cmdStartServer),
+	Command("server-stop",  cmdStopServer),
+
+	Command("help",         cmdHelp),
 };
 
 
 void runCmd(char* userInput) {
-    // Remove all '/' characters from the beginning of userInput
-    char* cmdStart = userInput;
-    while (*cmdStart == '/') {
-        cmdStart++;
-    }
+	// Remove all '/' characters from the beginning of userInput
+	char* cmdStart = userInput;
+	while (*cmdStart == '/') {
+		cmdStart++;
+	}
 
-    char cmd[maxUserInput];
-    getNextCommandPart(cmdStart, cmd); // Extract the first command part
+	char cmd[maxUserInput];
+	getNextCommandPart(cmdStart, cmd); // Extract the first command part
 
-    bool found = false;
-    int cmdCount = sizeof(commands) / sizeof(Command);
-    for(int i=0; i<cmdCount; ++i) {
-    	if (strcmp(cmd, commands[i].name) == 0) {
+	bool found = false;
+	int cmdCount = sizeof(commands) / sizeof(Command);
+	for(int i=0; i<cmdCount; ++i) {
+		if (strcmp(cmd, commands[i].name) == 0) {
 			commands[i].callback(cmdStart);
 			found = true;
 			break;
-    	}
-    }
+		}
+	}
 
-    if (!found) {
-    	SERIAL_LOG_FORMAT(128, "Unrecognized command: %s Type /help for help", cmd);
-    }	
+	if (!found) {
+		SERIAL_LOG_FORMAT(128, "Unrecognized command: %s Type /help for help", cmd);
+	}	
 }
+
+
+// @TODO make it possible to not need these methods (commands reference member functions?)
+void cmdListWifi(char* cmdStart)    { serverInterface.listWifi();    }
+void cmdStartWifi(char* cmdStart)   { serverInterface.startWifi();   }
+void cmdPrintStatus(char* cmdStart) { serverInterface.printStatus(); }
+void cmdStopWifi(char* cmdStart)    { serverInterface.stopWifi();    }
+void cmdStartServer(char* cmdStart) { serverInterface.startServer(); }
+void cmdStopServer(char* cmdStart)  { serverInterface.stopServer();  }
 
 
 void cmdPing(char* cmdStart)
 {
 	ping(1);
-    Serial.println("PING enabled");
+	serialPrintln("PING enabled");
 }
 
 void cmdUnping(char* cmdStart)
@@ -191,10 +215,10 @@ void cmdDebug(char* cmdStart)
 void cmdBlink(char* cmdStart)
 {
 	for (int i = 0; i < 3; i++) {
-	    digitalWrite(LED_BUILTIN, LOW); 
-	    delay(300);
-	    digitalWrite(LED_BUILTIN, HIGH);
-	    delay(300);
+		digitalWrite(LED_BUILTIN, LOW); 
+		delay(300);
+		digitalWrite(LED_BUILTIN, HIGH);
+		delay(300);
 	}
 }
 
@@ -230,23 +254,23 @@ void cmdGet(char* cmdStart) {
 }
 
 void cmdVoltage(char* cmdStart) {
-    float bank1 = getBatteryVoltage(VOLTAGE_READ_PIN0);
-    float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
-    bank1 -= bank2;
-    
-    char voltageString[128]; // Stack allocation (temporary)
-    sprintf(voltageString, "Voltage %s: BANK1: %.2f BANK2: %.2f", getDeviceId(), bank1, bank2);
-    Serial.println(voltageString);
+	float bank1 = getBatteryVoltage(VOLTAGE_READ_PIN0);
+	float bank2 = getBatteryVoltage(VOLTAGE_READ_PIN1);
+	bank1 -= bank2;
+	
+	char voltageString[128]; // Stack allocation (temporary)
+	sprintf(voltageString, "Voltage %s: BANK1: %.2f BANK2: %.2f", getDeviceId(), bank1, bank2);
+	serialPrintln(voltageString);
 
-    lora.send(voltageString, CONFIG.getHops());
+	lora.send(voltageString, CONFIG.getHops());
 }
 
 void cmdGain(char* cmdStart) {
-    char gainStr[maxUserInput];
-    getNextCommandPart(cmdStart, gainStr);
-    long gain = atol(gainStr);
-    lora.lora->setGain(gain);
-    SERIAL_LOG_FORMAT(64, "Gain set to %ld", &gain);
+	char gainStr[maxUserInput];
+	getNextCommandPart(cmdStart, gainStr);
+	long gain = atol(gainStr);
+	lora.lora->setGain(gain);
+	SERIAL_LOG_FORMAT(64, "Gain set to %ld", &gain);
 }
 
 void cmdHelp(char* cmdStart) {
@@ -265,13 +289,21 @@ void cmdHelp(char* cmdStart) {
 	Serial.println("name: 1 through 8 chars");
 	Serial.println("ignore: Ignore up to 3 comma separated deviceIds\n");
 
-	Serial.println("/debug (toggle debug)");
-	Serial.println("/relay (toggle relay)");
-	Serial.println("/ping (enable ping)");
-	Serial.println("/unping (disable ping)");
-	Serial.println("/gain 0 - 6 (not saved with config");
-	Serial.println("In general: / (me), // (next hop), /// (every device), ////<deviceID> (addressed to device");
-	Serial.println("Caution: You can get into trouble by doing things like ///ping, which will permanently flood the network");
+	serialPrintln("/debug (toggle debug)");
+	serialPrintln("/relay (toggle relay)");
+	serialPrintln("/ping (enable ping)");
+	serialPrintln("/unping (disable ping)");
+	serialPrintln("/gain 0 - 6 (not saved with config");
+	
+	serialPrintln("\nWIFI:");
+	serialPrintln("/wifi-list    (get list of available networks)");
+	serialPrintln("/wifi-start   (connect to network specified in params with ssid/password)");
+	serialPrintln("/wifi-stop    (shutdown wifi and server)");
+	serialPrintln("/server-start (start web server for controlling node)");
+	serialPrintln("/server-stop  (stop web server)");
+
+	serialPrintln("\nIn general: / (me), // (next hop), /// (every device), ////<deviceID> (addressed to device");
+	serialPrintln("Caution: You can get into trouble by doing things like ///ping, which will permanently flood the network");
 }
 
 // Template for additional commands:
@@ -279,46 +311,50 @@ void cmdHelp(char* cmdStart) {
 
 
 void setConfig(char* userInput) {
-    char param[maxUserInput];
-    getNextCommandPart(userInput, param);
+	char param[maxUserInput];
+	getNextCommandPart(userInput, param);
 
-    char value[maxUserInput];
-    getNextCommandPart(userInput, value);
+	// Take the full remainder as the value
+	const char* value = userInput;
 
-    if (strcmp(param, "bandwidth") == 0) {
-        CONFIG.setBandwidth(atoi(value));
-    } else if (strcmp(param, "channel") == 0) {
-        CONFIG.setChannel(atoi(value));      
-    } else if (strcmp(param, "power") == 0) {
-        CONFIG.setPower(atoi(value));
-    } else if (strcmp(param, "hops") == 0) {
-        CONFIG.setHops(atoi(value));
-    } else if (strcmp(param, "name") == 0) {
-        CONFIG.setName(value);
-    } else if (strcmp(param, "ignore") == 0) {
-        CONFIG.setIgnore(value);
-    }
+	if (strcmp(param, "bandwidth") == 0) {
+		CONFIG.setBandwidth(atoi(value));
+	} else if (strcmp(param, "channel") == 0) {
+		CONFIG.setChannel(atoi(value));
+	} else if (strcmp(param, "power") == 0) {
+		CONFIG.setPower(atoi(value));
+	} else if (strcmp(param, "hops") == 0) {
+		CONFIG.setHops(atoi(value));
+	} else if (strcmp(param, "name") == 0) {
+		CONFIG.setName(value);
+	} else if (strcmp(param, "ignore") == 0) {
+		CONFIG.setIgnore(value);
+	} else if (strcmp(param, "ssid") == 0) {
+		CONFIG.setSSID(value);
+	} else if (strcmp(param, "password") == 0) {
+		CONFIG.setPassword(value);
+	}
 }
 
 
 void getNextCommandPart(char* input, char* nextPart) {
-    // Find the first space in the input
-    char* spacePtr = strchr(input, ' ');
-    if (spacePtr == NULL) {
-        // No space found, copy the whole input to nextPart
-        strncpy(nextPart, input, maxUserInput - 1);
-        nextPart[maxUserInput - 1] = '\0'; // Ensure null termination
-        input[0] = '\0'; // Clear the input
-        return;
-    }
+	// Find the first space in the input
+	char* spacePtr = strchr(input, ' ');
+	if (spacePtr == NULL) {
+		// No space found, copy the whole input to nextPart
+		strncpy(nextPart, input, maxUserInput - 1);
+		nextPart[maxUserInput - 1] = '\0'; // Ensure null termination
+		input[0] = '\0'; // Clear the input
+		return;
+	}
 
-    // Calculate the length of the next part
-    int nextPartLength = spacePtr - input;
-    strncpy(nextPart, input, nextPartLength);
-    nextPart[nextPartLength] = '\0'; // Ensure null termination
+	// Calculate the length of the next part
+	int nextPartLength = spacePtr - input;
+	strncpy(nextPart, input, nextPartLength);
+	nextPart[nextPartLength] = '\0'; // Ensure null termination
 
-    // Shift the remainder of input to the beginning
-    memmove(input, spacePtr + 1, strlen(spacePtr + 1) + 1); // +1 to include the null terminator
+	// Shift the remainder of input to the beginning
+	memmove(input, spacePtr + 1, strlen(spacePtr + 1) + 1); // +1 to include the null terminator
 }
 
 
@@ -340,4 +376,5 @@ void ping(int enable) {
 		} 
 	}
 }
+
 

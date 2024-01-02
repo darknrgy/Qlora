@@ -13,7 +13,34 @@ void      handleUserInput(char* userInput);
 String    getLinesAsJson();
 WebServer server(80);
 
-void WebServerInterface::init() {
+void WebServerInterface::listWifi()
+{
+	WiFi.scanDelete();
+	int networkCount = WiFi.scanNetworks(false, true, false);
+
+    
+    for(int i=0; i<networkCount; ++i) {
+    	serialPrintln(WiFi.SSID(i).c_str());
+    }
+    
+
+    // // scan result
+    // bool getNetworkInfo(uint8_t networkItem, String &ssid, uint8_t &encryptionType, int32_t &RSSI, uint8_t* &BSSID, int32_t &channel);
+
+    // String SSID(uint8_t networkItem);
+    // wifi_auth_mode_t encryptionType(uint8_t networkItem);
+    // int32_t RSSI(uint8_t networkItem);
+    // uint8_t * BSSID(uint8_t networkItem);
+    // String BSSIDstr(uint8_t networkItem);
+    // int32_t channel(uint8_t networkItem);
+}
+
+void WebServerInterface::startWifi()
+{
+	if (wifiRunning) {
+		serialPrintln("Wifi is already running.");
+		return;
+	}
 
 	// Initialize the buffer with empty strings
     for (int i = 0; i < bufferSize; i++) {
@@ -24,9 +51,47 @@ void WebServerInterface::init() {
 	WiFi.begin(ssid, password);
 
 	// Wait for connection
-	while (WiFi.status() != WL_CONNECTED) {
+	int maxTries = 30;
+	while (WiFi.status() != WL_CONNECTED && maxTries > 0) {
 		delay(500);
 		serialPrint(".");
+		--maxTries;
+	}	
+
+	if (maxTries == -1) {
+		serialPrintln("Failed to connect.");
+		return;
+	}
+
+	wifiRunning = true;
+
+	printStatus();
+}
+
+void WebServerInterface::printStatus()
+{
+	if (wifiRunning) {
+		serialPrintln("");
+		serialPrint("Connected to ");  serialPrintln( CONFIG.getSSID()                      );
+		serialPrint("Hostname: ");     serialPrintln( WiFi.getHostname()                    );
+		serialPrint("IP address: ");   serialPrintln( WiFi.localIP().toString().c_str()     );
+		serialPrint("Mac address: ");  serialPrintln( WiFi.macAddress().c_str()             );
+		serialPrint("Subnet mask: ");  serialPrintln( WiFi.subnetMask().toString().c_str()  );
+		serialPrint("Gateway IP: ");   serialPrintln( WiFi.gatewayIP().toString().c_str()   );
+		serialPrint("DNS IP: ");       serialPrintln( WiFi.dnsIP().toString().c_str()       );
+		serialPrint("Broadcast IP: "); serialPrintln( WiFi.broadcastIP().toString().c_str() );
+		serialPrint("Network ID: ");   serialPrintln( WiFi.networkID().toString().c_str()   );
+		serialPrint("Local IPV6: ");   serialPrintln( WiFi.localIPv6().toString().c_str()   );
+	} else {
+		serialPrintln("Wifi Disconnected");	
+	}
+}
+
+void WebServerInterface::stopWifi()
+{
+	if (!wifiRunning) {
+		serialPrintln("Wifi is already shut down.");
+		return;
 	}
 
 	serialPrintln("");
@@ -94,19 +159,25 @@ String getLinesAsJson() {
 }
 
 
-void addToBuffer(const char* text) {
-    // Ensure we don't copy more than the maxLineLength - 1 characters (leaving space for null terminator)
-    strncpy(circularBuffer[currentIndex], text, maxLineLength - 1);
-    // Manually add null terminator in case text was truncated
+void addToBuffer(const char* text, bool newLine = true) {
+    // Append text to the current line
+    int currentLength = strlen(circularBuffer[currentIndex]);
+    int availableSpace = maxLineLength - currentLength - 1;
+    strncat(circularBuffer[currentIndex], text, availableSpace);
     circularBuffer[currentIndex][maxLineLength - 1] = '\0';
-    // Increment and wrap index if necessary
-    currentIndex = (currentIndex + 1) % bufferSize;
+
+    // Move to the next index if newLine is true
+    if (newLine) {
+        currentIndex = (currentIndex + 1) % bufferSize;
+        // Clear the next line
+        circularBuffer[currentIndex][0] = '\0';
+    }
 }
 
 void serialPrint(const char* text)
 {
-	addToBuffer(text);
-	Serial.println(text);
+	addToBuffer(text, false);
+	Serial.print(text);
 }
 
 void serialPrintln(const char* line)

@@ -15,18 +15,24 @@ void Config::load() {
 		setDefaults();
 	} 
 
-	debug = prefs.getBool("debug");
-	relay = prefs.getBool("relay");
+	debug     = prefs.getBool("debug");
+	relay     = prefs.getBool("relay");
 	bandwidth = prefs.getLong("bw");
-	power = prefs.getLong("power");
-	channel = prefs.getLong("channel");
-	hops = prefs.getLong("hops");
+	power     = prefs.getLong("power");
+	channel   = prefs.getLong("channel");
+	hops      = prefs.getLong("hops");
 	
 	strncpy(name, prefs.getString("name").c_str(), maxNameSize-1);
 	name[maxNameSize-1] = '\0';
 
 	strncpy(ignore, prefs.getString("ignore").c_str(), maxIgnoreSize-1);
 	ignore[maxIgnoreSize-1] = '\0';
+
+	strncpy(ssid, prefs.getString("ssid").c_str(), maxSSIDSize-1);
+	ssid[maxNameSize-1] = '\0';
+
+	strncpy(password, prefs.getString("password").c_str(), maxPasswordSize-1);
+	password[maxPasswordSize-1] = '\0';
 
 	prefs.end();
 
@@ -152,6 +158,29 @@ void Config::setIgnore(const char* ignore) {
 const char* Config::getIgnore() {
 	return ignore;
 }
+
+void Config::setSSID(const char* ssid)
+{
+    strncpy(this->ssid, ssid, maxSSIDSize-1);
+    this->ssid[maxSSIDSize-1] = '\0'; // Ensure null termination
+    save();
+}
+const char* Config::getSSID()
+{
+	return ssid;
+}
+
+void Config::setPassword(const char* password)
+{
+	strncpy(this->password, password, maxPasswordSize-1);
+    this->password[maxPasswordSize-1] = '\0'; // Ensure null termination
+    save();
+}
+const char* Config::getPassword()
+{
+	return password;
+}
+
 
 
 void Config::setDefaults() {
