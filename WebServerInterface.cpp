@@ -118,10 +118,13 @@ void WebServerInterface::startServer()
 	//ElegantOTA.begin(&server);    // Start ElegantOTA
 	server.begin();
 	serialPrintln("HTTP server started");
+
+	serverRunning = true;
 }
 
 void WebServerInterface::stopServer()
 {
+	serverRunning = false;
 	server.stop();
 }
 
