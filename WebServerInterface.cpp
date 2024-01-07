@@ -92,6 +92,39 @@ void WebServerInterface::stopWifi()
 	wifiRunning = false;
 }
 
+
+void WebServerInterface::startServer()
+{
+	server.on("/", []() {
+		server.send(200, "text/html", "<!doctypehtml><html lang=en><meta charset=UTF-8><title>Microcontroller Serial Interface</title><style>body{font-family:Arial,sans-serif;margin:0;padding:0}#inputField{width:100%;box-sizing:border-box}#output{height:300px;overflow-y:scroll;background:#f0f0f0;margin-top:10px;padding:5px}button{margin-top:5px}</style><input id=inputField placeholder=\"Type here...\"> <button onclick=submitData()>Submit</button> <button onclick=clearOutput()>Clear Output</button><div id=output></div><script>var e=document.getElementById(\"inputField\"),t=document.getElementById(\"output\"),n=[],o=0;e.addEventListener(\"keydown\",(function(t){var a;\"Enter\"===t.key?(a=e.value,n.push(a),o=n.length,fetch(\"/submit\",{method:\"POST\",body:a}),e.value=\"\"):\"ArrowUp\"===t.key?(o=Math.max(o-1,0),e.value=n[o]||\"\"):\"ArrowDown\"===t.key&&(o=Math.min(o+1,n.length-1),e.value=n[o]||\"\")})),setInterval((function(){fetch(\"/poll\").then((e=>e.json())).then((e=>{e.forEach((e=>{var n=document.createElement(\"div\");n.textContent=e,t.appendChild(n)}))}))}),2e3);</script>");
+	});
+	
+	server.on("/submit", HTTP_POST, []() {
+		if (server.hasArg("plain")) {
+
+			char userData[1024];
+			strncpy(userData, server.arg("plain").c_str(), 1023);
+			userData[1023] = '\0';
+
+			serialPrintln(userData); // Do something with postData
+			handleUserInput(userData);
+		}
+	});
+
+	server.on("/poll", []() {
+		server.send(200, "application/json", getLinesAsJson());
+	});
+
+	//ElegantOTA.begin(&server);    // Start ElegantOTA
+	server.begin();
+	serialPrintln("HTTP server started");
+}
+
+void WebServerInterface::stopServer()
+{
+	server.stop();
+}
+
 void WebServerInterface::update() {
 	if (serverRunning) {
 		server.handleClient();

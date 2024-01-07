@@ -111,6 +111,10 @@ void handleUserInput(char* userInput)
 			return;
 		}
 
+		if (strncmp(userInput, "/", 1) == 0) {
+			runCmd(userInput);
+			return;
+		}
 
         char message[maxUserInput + 50]; // To accommodate additional text
         sprintf(message, "%s: %s", CONFIG.getName(), userInput);

@@ -216,10 +216,10 @@ void Config::save() {
 
 void Config::getAllAsString(char* buffer, size_t bufferSize) {
     snprintf(buffer, bufferSize,
-             "CONFIG: debug: %s, relay: %s, bandwidth: %d, power: %d, channel: %d, hops: %d, name: %s, ignore: %s",
+             "CONFIG: debug: %s, relay: %s, bandwidth: %d, power: %d, channel: %d, hops: %d, name: %s, ignore: %s, ssid: %s",
              debug ? "true" : "false", 
              relay ? "true" : "false", 
              bandwidth, power, channel, hops,
-             name, ignore);
+             name, ignore, ssid);
 }
 
