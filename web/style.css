@@ -1,0 +1,22 @@
+
+body { font-family: Arial, sans-serif; margin: 0; padding: 20px; box-sizing: border-box; }
+
+.tab { display: none; }
+.tab.active { display: block; }
+.tab-header { margin-bottom: 20px; }
+.tab-button { padding: 10px; cursor: pointer; }
+.tab-button.active { font-weight: bold; }
+
+#inputField { width: calc(100% - 10px); box-sizing: border-box; }
+
+#output { 
+  height: calc(100vh - 220px); /* full viewport height minus top and bottom padding and input field height and margin */
+  overflow-y: scroll; 
+  background: #f0f0f0; 
+  margin-top: 10px; 
+  padding: 5px; 
+  font-family: 'Courier New', monospace; 
+  white-space: pre; /* ensures spaces and line breaks are rendered as is */
+}
+
+button { margin-top: 5px; }

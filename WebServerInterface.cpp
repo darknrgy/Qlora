@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "WebServerInterface.h"
 #include "util.h"
+#include "web-content.h"
 
 const int bufferSize    = 100;                       // Number of lines in the buffer
 const int maxLineLength = 128;                       // Maximum length of each line, including the null terminator
@@ -96,7 +97,15 @@ void WebServerInterface::stopWifi()
 void WebServerInterface::startServer()
 {
 	server.on("/", []() {
-		server.send(200, "text/html", "<!doctypehtml><html lang=en><meta charset=UTF-8><title>Microcontroller Serial Interface</title><style>body{font-family:Arial,sans-serif;margin:0;padding:0}#inputField{width:100%;box-sizing:border-box}#output{height:300px;overflow-y:scroll;background:#f0f0f0;margin-top:10px;padding:5px}button{margin-top:5px}</style><input id=inputField placeholder=\"Type here...\"> <button onclick=submitData()>Submit</button> <button onclick=clearOutput()>Clear Output</button><div id=output></div><script>var e=document.getElementById(\"inputField\"),t=document.getElementById(\"output\"),n=[],o=0;e.addEventListener(\"keydown\",(function(t){var a;\"Enter\"===t.key?(a=e.value,n.push(a),o=n.length,fetch(\"/submit\",{method:\"POST\",body:a}),e.value=\"\"):\"ArrowUp\"===t.key?(o=Math.max(o-1,0),e.value=n[o]||\"\"):\"ArrowDown\"===t.key&&(o=Math.min(o+1,n.length-1),e.value=n[o]||\"\")})),setInterval((function(){fetch(\"/poll\").then((e=>e.json())).then((e=>{e.forEach((e=>{var n=document.createElement(\"div\");n.textContent=e,t.appendChild(n)}))}))}),2e3);</script>");
+		server.send(200, "text/html", html_content);
+	});
+
+	server.on("/style.min.css", []() {
+		server.send(200, "text/css", css_content);
+	});
+
+	server.on("/script.min.js", []() {
+		server.send(200, "text/javascript", js_content);
 	});
 	
 	server.on("/submit", HTTP_POST, []() {
@@ -109,6 +118,7 @@ void WebServerInterface::startServer()
 			serialPrintln(userData); // Do something with postData
 			handleUserInput(userData);
 		}
+		server.send(200, "text/plain", "success");
 	});
 
 	server.on("/poll", []() {
@@ -146,11 +156,9 @@ String getLinesAsJson() {
     // Start from the lastSentIndex up to currentIndex
     int i = lastSentIndex;
     do {
-        if (circularBuffer[i][0] != '\0') { // Check if the line is not empty
-            json += "\"";
-            json += String(circularBuffer[i]);
-            json += "\",";
-        }
+        json += "\"";
+        json += String(circularBuffer[i]);
+        json += "\",";
         i = (i + 1) % bufferSize;
     } while (i != currentIndex);
 
@@ -165,19 +173,32 @@ String getLinesAsJson() {
 
 
 void addToBuffer(const char* text, bool newLine = true) {
-    // Append text to the current line
-    int currentLength = strlen(circularBuffer[currentIndex]);
-    int availableSpace = maxLineLength - currentLength - 1;
-    strncat(circularBuffer[currentIndex], text, availableSpace);
-    circularBuffer[currentIndex][maxLineLength - 1] = '\0';
+    const char* currentLine = text;
+    while (*currentLine != '\0') { // Iterate through the string
+        // Find the next new line character or end of the string
+        const char* nextLine = strchr(currentLine, '\n');
+        int lineLength = nextLine != nullptr? nextLine - currentLine : strlen(currentLine);
 
-    // Move to the next index if newLine is true
+        // Append the current line to the circular buffer
+        int copyLength = (lineLength < maxLineLength - 1) ? lineLength : maxLineLength - 1;
+        strncat(circularBuffer[currentIndex], currentLine, copyLength);
+        circularBuffer[currentIndex][maxLineLength - 1] = '\0';
+
+        if (nextLine == nullptr) break;
+
+    	currentIndex = (currentIndex + 1) % bufferSize;
+        circularBuffer[currentIndex][0] = '\0';
+        currentLine = nextLine + 1; // Move to the start of the next line
+    }
+
+    // Move to the next index if newLine is true or end of the line reached
     if (newLine) {
         currentIndex = (currentIndex + 1) % bufferSize;
         // Clear the next line
         circularBuffer[currentIndex][0] = '\0';
     }
 }
+
 
 void serialPrint(const char* text)
 {

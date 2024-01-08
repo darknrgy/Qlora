@@ -119,7 +119,7 @@ void handleUserInput(char* userInput)
         char message[maxUserInput + 50]; // To accommodate additional text
         sprintf(message, "%s: %s", CONFIG.getName(), userInput);
         Serial.print("<<< ");
-        Serial.println(message);
+        serialPrintln(message);
         lora.send(message, CONFIG.getHops());
     }
 }
@@ -196,7 +196,7 @@ void cmdPing(char* cmdStart)
 void cmdUnping(char* cmdStart)
 {
 	ping(0);
-	Serial.println("PING disabled");
+	serialPrintln("PING disabled");
 }
 
 void cmdDebug(char* cmdStart)
@@ -242,7 +242,7 @@ void cmdGet(char* cmdStart) {
 		return;
 	}
 
-	Serial.println(send);
+	serialPrintln(send);
 }
 
 void cmdVoltage(char* cmdStart) {
@@ -266,20 +266,20 @@ void cmdGain(char* cmdStart) {
 }
 
 void cmdHelp(char* cmdStart) {
-	Serial.println("\nHELP (list of all commands):");
-	Serial.println("/get (list all saved configs)");
-	Serial.println("/set <param> <value>");
-	Serial.println("//set <param> <value> (set a param to any first hop listening)");
-	Serial.println("////<deviceId> set <param> <value> (set a param on any device)");
-	Serial.println("///get [deviceId] (get config of remote device)");
+	serialPrintln("\nHELP (list of all commands):");
+	serialPrintln("/get (list all saved configs)");
+	serialPrintln("/set <param> <value>");
+	serialPrintln("//set <param> <value> (set a param to any first hop listening)");
+	serialPrintln("////<deviceId> set <param> <value> (set a param on any device)");
+	serialPrintln("///get [deviceId] (get config of remote device)");
 	
-	Serial.println("\nPARAMS:");
-	Serial.println("bandwidth: 125000, 250000");
-	Serial.println("power: 1 through 20");
-	Serial.println("channel: 1 through 128");
-	Serial.println("hops: 1 through 255");
-	Serial.println("name: 1 through 8 chars");
-	Serial.println("ignore: Ignore up to 3 comma separated deviceIds\n");
+	serialPrintln("\nPARAMS:");
+	serialPrintln("bandwidth: 125000, 250000");
+	serialPrintln("power: 1 through 20");
+	serialPrintln("channel: 1 through 128");
+	serialPrintln("hops: 1 through 255");
+	serialPrintln("name: 1 through 8 chars");
+	serialPrintln("ignore: Ignore up to 3 comma separated deviceIds\n");
 
 	serialPrintln("/debug (toggle debug)");
 	serialPrintln("/relay (toggle relay)");
@@ -362,7 +362,7 @@ void ping(int enable) {
 	if (enable == -1 && enabled == 1) {
 		if (ullmillis() >= nextPingTime) {
 			nextPingTime = ullmillis() + 15000;
-			Serial.println("<<< PING");
+			serialPrintln("<<< PING");
 			lora.send("PING", CONFIG.getHops());
 			sleepManager.extendAwake();			
 		} 

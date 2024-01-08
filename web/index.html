@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Microcontroller Interface</title>
+  <link rel="stylesheet" href="style.min.css">
+</head>
+<body>
+  <div class="tab-header">
+    <button class="tab-button active" onclick="openTab('serial')">Serial Interface</button>
+    <button class="tab-button" onclick="openTab('upload')">File Upload</button>
+    <button class="tab-button" onclick="openTab('settings')">Settings</button>
+  </div>
+
+  <div id="serial" class="tab active">
+    <input type="text" id="inputField" placeholder="Type here..." />
+    <button onclick="submitData()">Submit</button>
+    <button onclick="clearOutput()">Clear Output</button>
+    <label>
+      <input type="checkbox" id="autoScroll" checked>
+      Scroll to bottom
+    </label>
+    <div id="output"></div>
+  </div>
+
+  <div id="upload" class="tab">
+    <form>
+      <input type="file" accept=".bin">
+      <input type="submit" value="Upload Binary">
+    </form>
+  </div>
+
+  <div id="settings" class="tab">
+    <div style="display: grid; grid-template-columns: auto auto; gap: 10px;">
+      <!-- Add settings here -->
+      <div>Setting 1</div>
+      <input type="text">
+      <!-- Repeat for other settings -->
+    </div>
+  </div>
+
+  <script src="script.min.js"></script>
+</body>
+</html>
