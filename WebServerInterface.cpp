@@ -21,7 +21,7 @@ void WebServerInterface::listWifi()
     
     for(int i=0; i<networkCount; ++i) {
     	char buffer[256];
-    	sprintf(buffer, "%d) \"%s\" channel (%d) rssi (%d)", i, WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i));
+    	sprintf(buffer, "%d) '%s' channel (%d) rssi (%d)", i, WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i));
     	serialPrintln(buffer);
     }
 }
