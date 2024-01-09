@@ -24,9 +24,9 @@
   </div>
 
   <div id="upload" class="tab">
-    <form>
-      <input type="file" accept=".bin">
-      <input type="submit" value="Upload Binary">
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <input type="file" name="file">
+      <input type="submit" value="Upload File">
     </form>
   </div>
 

@@ -1,4 +1,5 @@
 
+  var uploadForm   = document.querySelector('#upload form');
   var inputField   = document.getElementById('inputField');
   var output       = document.getElementById('output');
   var autoScroll   = document.getElementById('autoScroll');
@@ -17,49 +18,63 @@
     }
   });
 
-  function openTab(tabName) {
-    var i, tabcontent, tablinks;
-    tabcontent = document.getElementsByClassName("tab");
-    for (i = 0; i < tabcontent.length; i++) {
-      tabcontent[i].style.display = "none";
-    }
-    tablinks = document.getElementsByClassName("tab-button");
-    for (i = 0; i < tablinks.length; i++) {
-      tablinks[i].className = tablinks[i].className.replace(" active", "");
-    }
-    document.getElementById(tabName).style.display = "block";
-    event.currentTarget.className += " active";
+  uploadForm.addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    var formData = new FormData(uploadForm);
+    fetch('/upload', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.text())
+    .then(data => console.log(data))
+    .catch(error => console.error('Error:', error));
+  });
+
+
+function openTab(tabName) {
+  var i, tabcontent, tablinks;
+  tabcontent = document.getElementsByClassName("tab");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
   }
-
-  function submitData() {
-    var data = inputField.value;
-    cmdHist.push(data);
-    cmdHistIndex = cmdHist.length;
-    fetch('/submit', { method: 'POST', body: data });
-    inputField.value = '';
+  tablinks = document.getElementsByClassName("tab-button");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].className = tablinks[i].className.replace(" active", "");
   }
+  document.getElementById(tabName).style.display = "block";
+  event.currentTarget.className += " active";
+}
 
-  function clearOutput() {
-    output.innerHTML = '';
-  }
+function submitData() {
+  var data = inputField.value;
+  cmdHist.push(data);
+  cmdHistIndex = cmdHist.length;
+  fetch('/submit', { method: 'POST', body: data });
+  inputField.value = '';
+}
 
-  function poll() {
-    fetch('/poll')
-      .then(response => response.json())
-      .then(data => {
-        var shouldScroll = autoScroll.checked && output.scrollTop + output.clientHeight === output.scrollHeight;
-        
-        data.forEach(line => {
-          var div = document.createElement('div');
-          // Make sure we have at least a non-breaking space on empty lines
-          div.textContent = line != "" ? line : " ";
-          output.appendChild(div);
-        });
+function clearOutput() {
+  output.innerHTML = '';
+}
 
-        if (shouldScroll) {
-          output.scrollTop = output.scrollHeight;
-        }
+function poll() {
+  fetch('/poll')
+    .then(response => response.json())
+    .then(data => {
+      var shouldScroll = autoScroll.checked && output.scrollTop + output.clientHeight === output.scrollHeight;
+      
+      data.forEach(line => {
+        var div = document.createElement('div');
+        // Make sure we have at least a non-breaking space on empty lines
+        div.textContent = line != "" ? line : " ";
+        output.appendChild(div);
       });
-  }
 
-  setInterval(poll, 2000); // Poll every 2 seconds
+      if (shouldScroll) {
+        output.scrollTop = output.scrollHeight;
+      }
+    });
+}
+
+setInterval(poll, 2000); // Poll every 2 seconds

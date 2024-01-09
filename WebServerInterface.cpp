@@ -1,29 +1,45 @@
+
+#include <FS.h>
+#include <SPIFFS.h>
 #include <Arduino.h>
+
 #include "WebServerInterface.h"
 #include "util.h"
 #include "web-content.h"
 
-const int bufferSize    = 100;                       // Number of lines in the buffer
-const int maxLineLength = 128;                       // Maximum length of each line, including the null terminator
-char      circularBuffer[bufferSize][maxLineLength]; // Circular buffer to hold the lines
-int       currentIndex  = 0;                         // Current index in the buffer
-int       lastSentIndex = 0;
+/* You only need to format SPIFFS the first time you run a
+   test or else use the SPIFFS plugin to create a partition
+   https://github.com/me-no-dev/arduino-esp32fs-plugin */
+#define FORMAT_SPIFFS_IF_FAILED true
+#define MAX_FILENAME_LENGTH     256
+#define JSON_BUFFER_SIZE        1024
+
+const int circBufferSize  = 100;                         // Number of lines in the buffer
+const int maxLineLength   = 128;                         // Maximum length of each line, including the null terminator
+char      circularBuffer[circBufferSize][maxLineLength]; // Circular buffer to hold the lines
+int       currentIndex    = 0;                           // Current index in the buffer
+int       lastSentIndex   = 0;
 
 
 void      handleUserInput(char* userInput);
-String    getLinesAsJson();
+void      handleFileUpload();
+char*     listFiles(char* jsonBuffer, int bufferSize);
+void      deleteFile(const char* filename);
+char*     getLinesAsJson(char* jsonBuffer, int bufferSize);
+
+
 WebServer server(80);
 
 void WebServerInterface::listWifi()
 {
 	WiFi.scanDelete();
 	int networkCount = WiFi.scanNetworks(false, true, false);
-    
-    for(int i=0; i<networkCount; ++i) {
-    	char buffer[256];
-    	sprintf(buffer, "%d) '%s' channel (%d) rssi (%d)", i, WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i));
-    	serialPrintln(buffer);
-    }
+	
+	for(int i=0; i<networkCount; ++i) {
+		char buffer[256];
+		sprintf(buffer, "%d) '%s' channel (%d) rssi (%d)", i, WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i));
+		serialPrintln(buffer);
+	}
 }
 
 void WebServerInterface::startWifi()
@@ -34,12 +50,12 @@ void WebServerInterface::startWifi()
 	}
 
 	// Initialize the buffer with empty strings
-    for (int i = 0; i < bufferSize; i++) {
-        circularBuffer[i][0] = '\0'; // Set the first character to null terminator
-    }
+	for (int i = 0; i < circBufferSize; i++) {
+		circularBuffer[i][0] = '\0'; // Set the first character to null terminator
+	}
 
-    const char* ssid     = CONFIG.getSSID();
-    const char* password = CONFIG.getPassword();
+	const char* ssid     = CONFIG.getSSID();
+	const char* password = CONFIG.getPassword();
 
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
@@ -96,18 +112,22 @@ void WebServerInterface::stopWifi()
 
 void WebServerInterface::startServer()
 {
+	// Root
 	server.on("/", []() {
 		server.send(200, "text/html", html_content);
 	});
 
+	// Setup endpoint to serve css
 	server.on("/style.min.css", []() {
 		server.send(200, "text/css", css_content);
 	});
 
+	// Setup endpoint to serve javascript
 	server.on("/script.min.js", []() {
 		server.send(200, "text/javascript", js_content);
 	});
 	
+	// Setup endpoint to process a web-based serial input
 	server.on("/submit", HTTP_POST, []() {
 		if (server.hasArg("plain")) {
 
@@ -121,12 +141,39 @@ void WebServerInterface::startServer()
 		server.send(200, "text/plain", "success");
 	});
 
+	// Setup endoing to get latest serial
 	server.on("/poll", []() {
-		server.send(200, "application/json", getLinesAsJson());
+		char jsonBuffer[1024];
+		server.send(200, "application/json", getLinesAsJson(jsonBuffer, sizeof(jsonBuffer)));
 	});
+
+	// Setup endpoint for file upload
+	server.on("/upload", HTTP_POST, []() {
+		server.send(200);
+	}, handleFileUpload);
+
+	// Setup endpoint to list files
+	server.on("/list-files", HTTP_GET, [this]() {
+		char jsonBuffer[1024];
+		server.send(200, "application/json", listFiles(jsonBuffer, sizeof(jsonBuffer)));
+	});
+
+	// Setup endpoint to delete a file
+	server.on("/delete-file", HTTP_POST, [this]() {
+		if (server.hasArg("filename")) {
+			deleteFile(server.arg("filename").c_str());
+			server.send(200, "text/plain", "File deleted");
+		} else {
+			server.send(400, "text/plain", "Bad Request");
+		}
+	});
+
 
 	//ElegantOTA.begin(&server);    // Start ElegantOTA
 	server.begin();
+	if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
+		serialPrintln("SPIFFS Mount Failed");
+	}
 	serialPrintln("HTTP server started");
 
 	serverRunning = true;
@@ -135,6 +182,7 @@ void WebServerInterface::startServer()
 void WebServerInterface::stopServer()
 {
 	serverRunning = false;
+	SPIFFS.end();
 	server.stop();
 }
 
@@ -142,61 +190,121 @@ void WebServerInterface::update() {
 	if (serverRunning) {
 		server.handleClient();
 	}
-  	//ElegantOTA.loop();
+	//ElegantOTA.loop();
+}
+
+
+void handleFileUpload() {
+	HTTPUpload& upload = server.upload();
+	char filename[MAX_FILENAME_LENGTH];
+
+	strncpy(filename, upload.filename.c_str(), MAX_FILENAME_LENGTH - 1);
+	filename[MAX_FILENAME_LENGTH - 1] = '\0'; // Ensure null termination
+
+
+	if (filename[0] != '/')
+		snprintf(filename, MAX_FILENAME_LENGTH, "/%s", upload.filename.c_str());
+
+	//@TODO - potentially put these files in an /upload folder
+
+	if (upload.status == UPLOAD_FILE_START) {
+		SERIAL_LOG_FORMAT(128, "Uploading file: %s", filename);
+		SPIFFS.remove(filename); // Overwrite existing file
+
+	} else if (upload.status == UPLOAD_FILE_WRITE) {
+		File file = SPIFFS.open(filename, FILE_APPEND);
+		if (file) {
+			SERIAL_LOG_FORMAT(128, "File appended, wrote %d", upload.currentSize);
+			file.write(upload.buf, upload.currentSize);
+			file.close();
+		}
+	}
+}
+
+char* listFiles(char* jsonBuffer, int bufferSize) {
+	strcpy(jsonBuffer, "[");
+
+	File root = SPIFFS.open("/");
+	if (!root || !root.isDirectory()) {
+		strcat(jsonBuffer, "]");
+		return jsonBuffer;
+	}
+
+	File file = root.openNextFile();
+	while (file) {
+		if (strlen(jsonBuffer) > 1) strcat(jsonBuffer, ",");
+		char fileEntry[128];
+		snprintf(fileEntry, sizeof(fileEntry), "{\"name\":\"%s\", \"size\":\"%d\"}", file.name(), file.size());
+		strncat(jsonBuffer, fileEntry, bufferSize);
+		file = root.openNextFile();
+	}
+	strcat(jsonBuffer, "]");
+	return jsonBuffer;
+}
+
+void deleteFile(const char* filename) {
+	char filePath[MAX_FILENAME_LENGTH];
+	if (filename[0] != '/')
+		snprintf(filePath, MAX_FILENAME_LENGTH, "/%s", filename);
+	else
+		strncpy(filePath, filename, MAX_FILENAME_LENGTH - 1);
+	filePath[MAX_FILENAME_LENGTH - 1] = '\0'; // Ensure null termination
+	
+	SPIFFS.remove(filePath);
 }
 
 
 // Function to convert the lines from the circular buffer to a JSON array string
-String getLinesAsJson() {
+char* getLinesAsJson(char* jsonBuffer, int bufferSize) {
+	
+	strcpy(jsonBuffer, "[");
+
 	if (lastSentIndex == currentIndex)
 		return "[]";
 
-    String json = "[";
+	int i = lastSentIndex;
+	do {
+		char lineBuffer[128]; // Assuming each line is not longer than 128 characters
+		snprintf(lineBuffer, sizeof(lineBuffer), "\"%s\",", circularBuffer[i]);
+		if (strlen(jsonBuffer) + strlen(lineBuffer) < bufferSize - 1)
+			strcat(jsonBuffer, lineBuffer);
+		i = (i + 1) % circBufferSize;
+	} while (i != currentIndex);
 
-    // Start from the lastSentIndex up to currentIndex
-    int i = lastSentIndex;
-    do {
-        json += "\"";
-        json += String(circularBuffer[i]);
-        json += "\",";
-        i = (i + 1) % bufferSize;
-    } while (i != currentIndex);
+	if (jsonBuffer[strlen(jsonBuffer) - 1] == ',')
+		jsonBuffer[strlen(jsonBuffer) - 1] = '\0'; // Remove trailing comma
 
-    if (json.endsWith(",")) {
-        json.remove(json.length() - 1); // Remove the trailing comma
-    }
-    
-    json += "]";
-    lastSentIndex = currentIndex; // Update lastSentIndex to the currentIndex
-    return json;
+	strcat(jsonBuffer, "]");
+	lastSentIndex = currentIndex; // Update lastSentIndex to the currentIndex
+	return jsonBuffer;
 }
 
 
 void addToBuffer(const char* text, bool newLine = true) {
-    const char* currentLine = text;
-    while (*currentLine != '\0') { // Iterate through the string
-        // Find the next new line character or end of the string
-        const char* nextLine = strchr(currentLine, '\n');
-        int lineLength = nextLine != nullptr? nextLine - currentLine : strlen(currentLine);
+	const char* currentLine = text;
+	while (*currentLine != '\0') { // Iterate through the string
+		// Find the next new line character or end of the string
+		const char* nextLine = strchr(currentLine, '\n');
+		int lineLength = nextLine != nullptr? nextLine - currentLine : strlen(currentLine);
 
-        // Append the current line to the circular buffer
-        int copyLength = (lineLength < maxLineLength - 1) ? lineLength : maxLineLength - 1;
-        strncat(circularBuffer[currentIndex], currentLine, copyLength);
-        circularBuffer[currentIndex][maxLineLength - 1] = '\0';
+		// Append the current line to the circular buffer
+		int copyLength = (lineLength < maxLineLength - 1) ? lineLength : maxLineLength - 1;
+		strncat(circularBuffer[currentIndex], currentLine, copyLength);
+		circularBuffer[currentIndex][maxLineLength - 1] = '\0';
 
-        if (nextLine == nullptr) break;
+		if (nextLine == nullptr) break;
 
-    	currentIndex = (currentIndex + 1) % bufferSize;
-        circularBuffer[currentIndex][0] = '\0';
-        currentLine = nextLine + 1; // Move to the start of the next line
-    }
+		currentIndex = (currentIndex + 1) % circBufferSize;
+		circularBuffer[currentIndex][0] = '\0';
+		currentLine = nextLine + 1; // Move to the start of the next line
+	}
 
-    // Move to the next index if newLine is true or end of the line reached
-    if (newLine) {
-        currentIndex = (currentIndex + 1) % bufferSize;
-        // Clear the next line
-        circularBuffer[currentIndex][0] = '\0';
-    }
+	// Move to the next index if newLine is true or end of the line reached
+	if (newLine) {
+		currentIndex = (currentIndex + 1) % circBufferSize;
+		// Clear the next line
+		circularBuffer[currentIndex][0] = '\0';
+	}
 }
 
 
