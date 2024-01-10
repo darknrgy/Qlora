@@ -23,9 +23,11 @@ int       lastSentIndex   = 0;
 
 void      handleUserInput(char* userInput);
 void      handleFileUpload();
+void      handleFileDownload();
 char*     listFiles(char* jsonBuffer, int bufferSize);
 void      deleteFile(const char* filename);
 char*     getLinesAsJson(char* jsonBuffer, int bufferSize);
+void      makeRootPath(char * file, const int bufferSize, const char* src);
 
 
 WebServer server(80);
@@ -158,10 +160,19 @@ void WebServerInterface::startServer()
 		server.send(200, "application/json", listFiles(jsonBuffer, sizeof(jsonBuffer)));
 	});
 
-	// Setup endpoint to delete a file
+	// Setup endpoint to download a file
+	server.on("/download", HTTP_GET, [this]() {
+		handleFileDownload();
+	});
+
 	server.on("/delete-file", HTTP_POST, [this]() {
-		if (server.hasArg("filename")) {
-			deleteFile(server.arg("filename").c_str());
+		SERIAL_LOG_FORMAT(128,"Delete: Has plain arg: %s", server.hasArg("plain")? "true" : "false");
+		if (server.hasArg("plain")) {
+			char filename[1024];
+			strncpy(filename, server.arg("plain").c_str(), 1023);
+			filename[1023] = '\0';
+			serialPrintln(filename);
+			deleteFile(filename);
 			server.send(200, "text/plain", "File deleted");
 		} else {
 			server.send(400, "text/plain", "Bad Request");
@@ -194,16 +205,20 @@ void WebServerInterface::update() {
 }
 
 
+
+void makeRootPath(char * file, const int bufferSize, const char* src)
+{
+	if (src[0] != '/') snprintf(file, bufferSize, "/%s", src);	
+	else               strncpy(file, src, bufferSize - 1);
+
+	file[bufferSize - 1] = '\0'; // Ensure null termination
+}
+
 void handleFileUpload() {
 	HTTPUpload& upload = server.upload();
+	
 	char filename[MAX_FILENAME_LENGTH];
-
-	strncpy(filename, upload.filename.c_str(), MAX_FILENAME_LENGTH - 1);
-	filename[MAX_FILENAME_LENGTH - 1] = '\0'; // Ensure null termination
-
-
-	if (filename[0] != '/')
-		snprintf(filename, MAX_FILENAME_LENGTH, "/%s", upload.filename.c_str());
+	makeRootPath(filename, MAX_FILENAME_LENGTH, upload.filename.c_str());
 
 	//@TODO - potentially put these files in an /upload folder
 
@@ -219,6 +234,40 @@ void handleFileUpload() {
 			file.close();
 		}
 	}
+}
+
+void handleFileDownload() {
+    if (server.hasArg("filename")) {
+        char filePath[MAX_FILENAME_LENGTH];
+        makeRootPath(filePath, MAX_FILENAME_LENGTH, server.arg("filename").c_str());
+
+        SERIAL_LOG_FORMAT(128, "Download: %s", filePath);
+
+        if (!SPIFFS.exists(filePath)) {
+            SERIAL_LOG_FORMAT(128, "Download: File not found %s", filePath);
+            server.send(404, "text/plain", "File not found");
+            return;
+        }
+
+        File file = SPIFFS.open(filePath, "r");
+        if (!file || file.isDirectory()) {
+            SERIAL_LOG_FORMAT(128, "Download: Failed to open file %s", filePath);
+            server.send(500, "text/plain", "Internal Server Error");
+            return;
+        }
+
+        const char* contentType = "application/octet-stream";
+        server.setContentLength(file.size());
+
+        char contentDisposition[256];
+        snprintf(contentDisposition, sizeof(contentDisposition), "attachment; filename=%s", filePath + 1);
+        server.sendHeader("Content-Disposition", contentDisposition);
+
+        server.streamFile(file, contentType);
+        file.close();
+    } else {
+        server.send(400, "text/plain", "Bad Request");
+    }
 }
 
 char* listFiles(char* jsonBuffer, int bufferSize) {
@@ -244,12 +293,7 @@ char* listFiles(char* jsonBuffer, int bufferSize) {
 
 void deleteFile(const char* filename) {
 	char filePath[MAX_FILENAME_LENGTH];
-	if (filename[0] != '/')
-		snprintf(filePath, MAX_FILENAME_LENGTH, "/%s", filename);
-	else
-		strncpy(filePath, filename, MAX_FILENAME_LENGTH - 1);
-	filePath[MAX_FILENAME_LENGTH - 1] = '\0'; // Ensure null termination
-	
+	makeRootPath(filePath, MAX_FILENAME_LENGTH, filename);
 	SPIFFS.remove(filePath);
 }
 
